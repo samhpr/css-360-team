@@ -13,6 +13,10 @@ This repository contains a Sprint 1 frontend baseline for Local Live, a concert 
 - Calendar view with events grouped by date
 - Basic accessibility affordances
 
+## TDD Presentation Notes
+
+Use [docs/tdd-presentation-notes.md](docs/tdd-presentation-notes.md) for a short class-ready summary of the test-first approach used for Sprint 1.
+
 ## Local Development
 
 1. Install Node.js 20+
