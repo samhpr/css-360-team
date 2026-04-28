@@ -13,7 +13,7 @@ This repository contains a Sprint 1 frontend baseline for Local Live, a concert 
 - Calendar view with events grouped by date
 - Basic accessibility affordances
 
-## Local Development
+## Instructions to setup Local Development webiste:
 
 1. Install Node.js 20+
 2. Move into frontend folder
@@ -26,7 +26,7 @@ npm install
 npm run dev
 ```
 
-## Test Commands
+## Test Commands:
 
 ```bash
 cd frontend
