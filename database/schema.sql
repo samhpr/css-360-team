@@ -1,6 +1,3 @@
--- Local Live event schema.
--- Compatible with both SQLite (local demo) and PostgreSQL (Supabase target).
-
 DROP TABLE IF EXISTS events;
 
 CREATE TABLE events (

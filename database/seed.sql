@@ -1,5 +1,4 @@
--- Seed data — mirrors frontend/src/data/events.js (v0.5).
--- Update this file in lockstep when the frontend mock array changes.
+-- mirrors frontend/src/data/events.js
 
 INSERT INTO events (id, name, genre, date, location, venue, ticket_link, ticket_price, is_ada_compliant) VALUES
   (1, 'Northside Noise Fest', 'Rock',       '2026-04-25', 'Seattle, WA',  'Emerald Hall',      'https://tickets.example.com/northside',   120, FALSE),

@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Build the local SQLite database from schema + seed, then run the
-# demo queries. Safe to re-run — drops and rebuilds events.db each time.
-
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
