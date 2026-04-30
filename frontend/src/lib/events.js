@@ -1,7 +1,15 @@
-export function sortByDateAscending(events) {
-  return [...events].sort((a, b) => new Date(a.date) - new Date(b.date));
+export function sortByDate(events, order = "soonest") {
+  return [...events].sort((a, b) => {
+    const dateA = new Date(a.date);
+    const dateB = new Date(b.date);
+    return order === "soonest" ? dateA - dateB : dateB - dateA;
+  });
 }
 
+// Kept for backward compatibility — equivalent to sortByDate(events, "soonest").
+export function sortByDateAscending(events) {
+  return sortByDate(events, "soonest");
+}
 export function filterByGenre(events, genre) {
   if (!genre || genre === "All") {
     return events;
