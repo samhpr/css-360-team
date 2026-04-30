@@ -1,5 +1,5 @@
 import React from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import EventCalendar from "./components/EventCalendar";
 import { mockEvents } from "./data/events";
 import {
@@ -13,14 +13,31 @@ import {
 function App() {
   const [searchValue, setSearchValue] = useState("");
   const [genre, setGenre] = useState("All");
+  const [events, setEvents] = useState(mockEvents);
+  const [sortOrder, setSortOrder] = useState("Soonest first");
 
-  const genreOptions = useMemo(() => getGenreOptions(mockEvents), []);
+  useEffect(() => {
+    // load events from fetchEvents (works with live API later)
+    let mounted = true;
+    import("./lib/events").then(({ fetchEvents }) => {
+      fetchEvents().then((data) => {
+        if (mounted) setEvents(data);
+      });
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const genreOptions = useMemo(() => getGenreOptions(events), [events]);
 
   const visibleEvents = useMemo(() => {
-    const searched = searchEvents(mockEvents, searchValue);
+    const searched = searchEvents(events, searchValue);
     const byGenre = filterByGenre(searched, genre);
-    return sortByDateAscending(byGenre);
-  }, [searchValue, genre]);
+    return sortOrder === "Soonest first"
+      ? sortByDateAscending(byGenre)
+      : sortByDateDescending(byGenre);
+  }, [events, searchValue, genre, sortOrder]);
 
   const eventsByDate = useMemo(() => getCalendarMap(visibleEvents), [visibleEvents]);
 
@@ -46,6 +63,17 @@ function App() {
             Clear
           </button>
         </div>
+
+        <label htmlFor="sort-order">Sort</label>
+        <select
+          id="sort-order"
+          name="sort-order"
+          value={sortOrder}
+          onChange={(e) => setSortOrder(e.target.value)}
+        >
+          <option value="Soonest first">Soonest first</option>
+          <option value="Latest first">Latest first</option>
+        </select>
 
         <label htmlFor="genre-filter">Genre</label>
         <select
