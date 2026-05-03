@@ -15,7 +15,7 @@ import { mockEvents } from "../data/events";
 // OFFICIAL RED TEST SUITE — Sprint 1 User Stories
 // INTENTIONALLY FAILING ASSERTIONS
 //
-// This file mirrors OFFICIAL_RED_sprint1_acceptance.test.jsx but with
+// This file mirrors sprint1_acceptance_ui.test.jsx but with
 // deliberately wrong expectations to demonstrate the "red" step.
 // Each test asserts behavior that the current app does NOT provide.
 //

@@ -5,6 +5,10 @@ import { describe, expect, test } from "vitest";
 // would add before implementation. They will fail until the API is
 // implemented in `src/lib/events` or a new service module.
 
+// Focus: API contract tests — these are backend/API-focused (not UI).
+// They exercise `fetchEvents()` and CRUD helpers and define the
+// expected server behavior and response shapes for implementers.
+
 import {
   fetchEvents,
   getEventById,

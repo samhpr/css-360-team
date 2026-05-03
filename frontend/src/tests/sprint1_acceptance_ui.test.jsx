@@ -19,14 +19,8 @@ import { mockEvents } from "../data/events";
 // The development team implements code to make them pass (green).
 // QA verifies edge cases and integration. Repeating TDD cycle.
 //
-// User stories covered:
-// 1. Upcoming concerts on home page with required details
-// 2. Sort concerts by date (soonest first)
-// 3. Calendar view with events grouped by date
-// 4. Clear button on search input
-// 5. Search with partial matching
-// 6. Genre filter
-// 7. Basic accessibility affordances
+// Focus: UI/UX acceptance tests — these assertions target frontend
+// rendering, client-side behavior, and accessibility (not the backend API).
 
 describe("OFFICIAL RED — Sprint 1 Acceptance Criteria", () => {
   //
