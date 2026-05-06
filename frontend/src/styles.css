@@ -36,6 +36,7 @@ body {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 0.75rem;
+  width: 100%;
 }
 
 input,
@@ -49,6 +50,8 @@ input,
 select {
   border: 1px solid #9db5ce;
   border-radius: 6px;
+  width: 100%;
+  min-width: 300px;
 }
 
 button {
@@ -78,6 +81,45 @@ button {
   border-top: 2px solid #d6e3f2;
   padding-top: 1rem;
 }
+
+.link-button {
+  background: none;
+  border: none;
+  color: #0066cc;
+  text-decoration: underline;
+  padding: 0;
+  font: inherit; 
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: #004499;
+  text-decoration: none;
+}
+
+
+/* Allows filter menus to fit together on one line  */
+
+.filterRow {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+  width: 100%;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1; 
+  min-width: 200px;
+}
+
+.filterGroup select {
+  min-width: 0;
+  width: 100%;
+}
+
 
 @media (max-width: 640px) {
   .search-row {
