@@ -1,5 +1,5 @@
 import React from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import EventCalendar from "./components/EventCalendar";
 import { mockEvents } from "./data/events";
 import {
@@ -13,22 +13,36 @@ import {
 function App() {
   const [searchValue, setSearchValue] = useState("");
   const [genre, setGenre] = useState("All");
+  const [events, setEvents] = useState(mockEvents);
   const [priceRange, setPriceRange] = useState('all');
-  const [adaOnly, setadaOnly] = useState('all');
+  const [adaOnly, setAdaOnly] = useState('all');
   const [sortOrder, setSortOrder] = useState("soonest");
 
-  const genreOptions = useMemo(() => getGenreOptions(mockEvents), []);
+  useEffect(() => {
+    // load events from fetchEvents (works with live API later)
+    let mounted = true;
+    import("./lib/events").then(({ fetchEvents }) => {
+      fetchEvents().then((data) => {
+        if (mounted) setEvents(data);
+      });
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const genreOptions = useMemo(() => getGenreOptions(events), [events]);
 
   const resetFilters = () => {
     setSearchValue("");
     setGenre("All");
     setPriceRange("all");
-    setadaOnly("all");
+    setAdaOnly("all");
     setSortOrder("soonest");
   };
 
   const visibleEvents = useMemo(() => {
-    const searched = searchEvents(mockEvents, searchValue);
+    const searched = searchEvents(events, searchValue);
     const byGenre = filterByGenre(searched, genre);
 
     // sorts ticket prices into categories
@@ -54,7 +68,7 @@ function App() {
     })();
 
     return sortByDate(byADAComp, sortOrder);
-  }, [searchValue, genre, priceRange, adaOnly, sortOrder]);
+  }, [events, searchValue, genre, priceRange, adaOnly, sortOrder]);
 
   const eventsByDate = useMemo(() => getCalendarMap(visibleEvents), [visibleEvents]);
 
@@ -130,7 +144,7 @@ function App() {
               id="ada-filter"
               name="ada-filter"
               value={adaOnly}
-              onChange={(event) => setadaOnly(event.target.value)}
+              onChange={(event) => setAdaOnly(event.target.value)}
             >
               <option value="all"> All </option>
               <option value="true"> ADA Compliant </option>
