@@ -10,6 +10,8 @@ Files
 - `RED_demo.test.jsx` — small UI-level failing demos used for teaching the red step.
 - `RED_events_demo.test.js` — unit-level failing demos for event utility functions.
 - `events_api_contract.test.js` — official red spec for an async events API (fetch/get/add/update/delete).
+- `sprint2_ui_acceptance_red.test.jsx` — Sprint 2 UI acceptance RED specs.
+- `sprint2_data_api_contract_red.test.js` — Sprint 2 API/data/security RED specs.
 - `README.md` — run and handoff notes for the RED folder.
 
 How to use
