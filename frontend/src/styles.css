@@ -126,3 +126,23 @@ button {
     flex-direction: column;
   }
 }
+
+.sync-button {
+  margin-top: 10px;
+  padding: 8px 16px;
+  background-color: #005eb8;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.sync-button:hover {
+  background-color: #004a9a;
+}
+
+.sync-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
