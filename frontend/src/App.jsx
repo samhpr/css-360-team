@@ -1,85 +1,103 @@
 import React from "react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import EventCalendar from "./components/EventCalendar";
-import { mockEvents } from "./data/events";
-import {
-  filterByGenre,
-  getCalendarMap,
-  getGenreOptions,
-  searchEvents,
-  sortByDate
-} from "./lib/events";
+import { getCalendarMap } from "./lib/events";
+
+const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 function App() {
   const [searchValue, setSearchValue] = useState("");
-  const [genre, setGenre] = useState("All");
-  const [priceRange, setPriceRange] = useState('all');
-  const [adaOnly, setadaOnly] = useState('all');
-  const [sortOrder, setSortOrder] = useState("soonest");
+  const [genre, setGenre]             = useState("All");
+  const [priceRange, setPriceRange]   = useState("all");
+  const [adaOnly, setAdaOnly]         = useState("all");
+  const [sortOrder, setSortOrder]     = useState("soonest");
 
-  const genreOptions = useMemo(() => getGenreOptions(mockEvents), []);
+  const [events, setEvents]           = useState([]);
+  const [genreOptions, setGenreOptions] = useState(["All"]);
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState(null);
+
+  // Load genre list once on mount
+  useEffect(() => {
+    fetch(`${API_BASE}/api/genres`)
+      .then((r) => r.json())
+      .then((data) => setGenreOptions(data.genres ?? ["All"]))
+      .catch(() => {});
+  }, []);
+
+  // Fetch events whenever any filter changes
+  const fetchEvents = useCallback(() => {
+    setLoading(true);
+    setError(null);
+
+    const params = new URLSearchParams({ sort: sortOrder });
+
+    if (searchValue) params.set("keyword", searchValue);
+    if (genre !== "All") params.set("genre", genre);
+    if (adaOnly === "true") params.set("ada_only", "true");
+
+    if (priceRange === "0-49")    { params.set("price_max", "49"); }
+    if (priceRange === "50-99")   { params.set("price_min", "50");  params.set("price_max", "99"); }
+    if (priceRange === "100-199") { params.set("price_min", "100"); params.set("price_max", "199"); }
+    if (priceRange === "geq200")  { params.set("price_min", "200"); }
+
+    fetch(`${API_BASE}/api/events?${params}`)
+      .then((r) => {
+        if (!r.ok) throw new Error(`Server error ${r.status}`);
+        return r.json();
+      })
+      .then((data) => setEvents(data))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [searchValue, genre, priceRange, adaOnly, sortOrder]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
 
   const resetFilters = () => {
     setSearchValue("");
     setGenre("All");
     setPriceRange("all");
-    setadaOnly("all");
+    setAdaOnly("all");
     setSortOrder("soonest");
   };
 
-  const visibleEvents = useMemo(() => {
-    const searched = searchEvents(mockEvents, searchValue);
-    const byGenre = filterByGenre(searched, genre);
-
-    // sorts ticket prices into categories
-    const byPrice = (() => {
-      if (priceRange === 'all') return byGenre;
-      return byGenre.filter(event => {
-        if (priceRange === '0-49')
-          return (event.ticketPrice < 50);
-        if (priceRange === '50-99')
-          return ((event.ticketPrice >= 50) && (event.ticketPrice < 100));
-        if (priceRange === '100-199')
-          return ((event.ticketPrice >= 100) && (event.ticketPrice < 200));
-        if (priceRange === 'geq200')
-          return (event.ticketPrice >= 200);
-        return true;
-      });
-    })();
-
-    // sorts concerts by ada compliance
-    const byADAComp = (() => {
-      if (adaOnly === 'all') return byPrice;
-      return byPrice.filter(event => event.isADAComp === true);
-    })();
-
-    return sortByDate(byADAComp, sortOrder);
-  }, [searchValue, genre, priceRange, adaOnly, sortOrder]);
-
-  const eventsByDate = useMemo(() => getCalendarMap(visibleEvents), [visibleEvents]);
+  const eventsByDate = useMemo(() => getCalendarMap(events), [events]);
 
   return (
-    // site title
     <div className="app-shell">
       <header>
         <h1>Local Live</h1>
         <p className="subtitle">Find nearby concerts happening soon.</p>
+        <button
+          type="button"
+          className="sync-button"
+          onClick={() => {
+            setLoading(true);
+            fetch(`${API_BASE}/api/events?refresh=true&tm_city=Seattle`)
+              .then((r) => r.json())
+              .then((data) => setEvents(data))
+              .catch((err) => setError(err.message))
+              .finally(() => setLoading(false));
+          }}
+          disabled={loading}
+        >
+          {loading ? "Syncing…" : "🔄 Sync Live Concerts"}
+        </button>
       </header>
 
-      {/* container for search bar and filters: */}
       <section className="controls" aria-label="Search and filter controls">
         <label htmlFor="search">Search concerts</label>
-        {/* search bar */}
         <div className="search-row">
           <input
             id="search"
             name="search"
             type="text"
             value={searchValue}
-            onChange={(event) => setSearchValue(event.target.value)}
+            onChange={(e) => setSearchValue(e.target.value)}
             placeholder="Search name, city, venue, genre"
           />
-          {/* clear button only renders when search has text */}
           {searchValue && (
             <button type="button" onClick={() => setSearchValue("")}>
               Clear
@@ -87,77 +105,65 @@ function App() {
           )}
         </div>
 
-        {/* filter bar */}
         <div className="filterRow">
-          {/* genre filter */}
           <div className="filterGroup">
             <label htmlFor="genre-filter">Genre</label>
             <select
               id="genre-filter"
-              name="genre-filter"
               value={genre}
-              onChange={(event) => setGenre(event.target.value)}
+              onChange={(e) => setGenre(e.target.value)}
             >
-              {genreOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
+              {genreOptions.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
               ))}
             </select>
           </div>
 
-          {/* price filter */}
           <div className="filterGroup">
             <label htmlFor="price-filter">Price</label>
             <select
               id="price-filter"
-              name="price-filter"
               value={priceRange}
-              onChange={(event) => setPriceRange(event.target.value)}
+              onChange={(e) => setPriceRange(e.target.value)}
             >
-              <option value="all"> Any </option>
-              <option value="0-49"> $0 - $49 </option>
-              <option value="50-99"> $50 - 99 </option>
-              <option value="100-199"> $100 - $199 </option>
-              <option value="geq200"> $200+ </option>
+              <option value="all">Any</option>
+              <option value="0-49">$0 – $49</option>
+              <option value="50-99">$50 – $99</option>
+              <option value="100-199">$100 – $199</option>
+              <option value="geq200">$200+</option>
             </select>
           </div>
 
-          {/* ada filter */}
           <div className="filterGroup">
             <label htmlFor="ada-filter">ADA Compliance</label>
             <select
               id="ada-filter"
-              name="ada-filter"
               value={adaOnly}
-              onChange={(event) => setadaOnly(event.target.value)}
+              onChange={(e) => setAdaOnly(e.target.value)}
             >
-              <option value="all"> All </option>
-              <option value="true"> ADA Compliant </option>
+              <option value="all">All</option>
+              <option value="true">ADA Compliant</option>
             </select>
           </div>
 
-          {/* sort filter */}
           <div className="filterGroup">
             <label htmlFor="sort-filter">Sort by date</label>
             <select
               id="sort-filter"
-              name="sort-filter"
               value={sortOrder}
-              onChange={(event) => setSortOrder(event.target.value)}
+              onChange={(e) => setSortOrder(e.target.value)}
             >
               <option value="soonest">Soonest first</option>
               <option value="latest">Latest first</option>
             </select>
           </div>
 
-          {/* button to reset filters */}
-          <div className="filterGroup" style={{ flex: 'none', minWidth: "auto", justifyContent: 'flex-end' }}>
+          <div className="filterGroup" style={{ flex: "none", minWidth: "auto", justifyContent: "flex-end" }}>
             <button
               type="button"
               className="link-button"
               onClick={resetFilters}
-              style={{ paddingBottom: '8px' }}
+              style={{ paddingBottom: "8px" }}
             >
               Reset Filters
             </button>
@@ -168,37 +174,35 @@ function App() {
       <main>
         <section aria-label="Upcoming concerts section">
           <h2>Upcoming Concerts</h2>
-          {/* if filters exclude all concerts, informs user and offers another reset filters button */}
-          {visibleEvents.length === 0 && (
+
+          {loading && <p className="status-msg">Loading concerts…</p>}
+          {error   && <p className="status-msg error">Error: {error}</p>}
+
+          {!loading && !error && events.length === 0 && (
             <div className="noResults">
-              <p>No concerts match the selected filters.{" "}
-                <button
-                  type="button"
-                  className="link-button"
-                  onClick={resetFilters}
-                >
-                  Reset Filters.
+              <p>
+                No concerts match the selected filters.{" "}
+                <button type="button" className="link-button" onClick={resetFilters}>
+                  Reset Filters
                 </button>
               </p>
             </div>
           )}
 
           <ul className="concert-list">
-            {visibleEvents.map((event) => (
+            {events.map((event) => (
               <li className="concert-card" key={event.id}>
                 <h3>{event.name}</h3>
-                <p>
-                  {event.date} | {event.genre}
-                </p>
+                <p>{event.date} | {event.genre}</p>
                 <p>
                   {event.location} | {event.venue}
                   {event.isADAComp && (
                     <span
                       title="ADA Compliant"
                       aria-label="ADA Compliant Venue"
-                      style={{ color: '#005eb8', marginLeft: '6px' }}
+                      style={{ color: "#005eb8", marginLeft: "6px" }}
                     >
-                      {'♿\uFE0E'}
+                      {"♿\uFE0E"}
                     </span>
                   )}
                 </p>
@@ -207,6 +211,7 @@ function App() {
             ))}
           </ul>
         </section>
+
         <EventCalendar eventsByDate={eventsByDate} />
       </main>
     </div>
