@@ -11,6 +11,7 @@ import {
   searchEvents,
   sortByDate
 } from "./lib/events";
+import { getFavorites, toggleFavorite } from "./lib/favorites";
 
 function App() {
   const [searchValue, setSearchValue] = useState("");
@@ -19,6 +20,8 @@ function App() {
   const [adaOnly, setadaOnly] = useState('all');
   const [sortOrder, setSortOrder] = useState("soonest");
   const [zipCode, setZipCode] = useState("All");
+  const [favorites, setFavorites] = useState(() => getFavorites());
+  const [viewMode, setViewMode] = useState("all"); // "all" or "favorites"
   
   const genreOptions = useMemo(() => getGenreOptions(mockEvents), []);
   const zipCodeOptions = useMemo(() => getZipCodeOptions(mockEvents), []);
@@ -31,6 +34,11 @@ function App() {
     setSortOrder("soonest");
     setZipCode("All");
   };
+
+  const handleToggleFavorite = (eventId) => {
+  const updated = toggleFavorite(eventId);
+  setFavorites(updated);
+};
 
   const visibleEvents = useMemo(() => {
     const searched = searchEvents(mockEvents, searchValue);
@@ -59,8 +67,12 @@ function App() {
       return byPrice.filter(event => event.isADAComp === true);
     })();
 
-    return sortByDate(byADAComp, sortOrder);
-  }, [searchValue, genre, priceRange, adaOnly, sortOrder, zipCode]);
+    const byFavorites = viewMode === "favorites"
+      ? byADAComp.filter((event) => favorites.includes(event.id))
+      : byADAComp;
+
+    return sortByDate(byFavorites, sortOrder);
+    }, [searchValue, genre, priceRange, adaOnly, sortOrder, zipCode, viewMode, favorites]);
 
   const eventsByDate = useMemo(() => getCalendarMap(visibleEvents), [visibleEvents]);
 
@@ -191,11 +203,36 @@ function App() {
         </div>
       </section>
 
+      <section className="view-toggle" aria-label="View toggle">
+        <button
+          type="button"
+          className={viewMode === "all" ? "view-tab active" : "view-tab"}
+          onClick={() => setViewMode("all")}
+          aria-pressed={viewMode === "all"}
+        >
+          All concerts
+        </button>
+        <button
+          type="button"
+          className={viewMode === "favorites" ? "view-tab active" : "view-tab"}
+          onClick={() => setViewMode("favorites")}
+          aria-pressed={viewMode === "favorites"}
+        >
+          ★ Favorites ({favorites.length})
+        </button>
+      </section>
+
       <main>
         <section aria-label="Upcoming concerts section">
           <h2>Upcoming Concerts</h2>
           {/* if filters exclude all concerts, informs user and offers another reset filters button */}
-          {visibleEvents.length === 0 && (
+          {visibleEvents.length === 0 && viewMode === "favorites" && favorites.length === 0 && (
+            <div className="noResults">
+              <p>No favorites yet — tap the ☆ on any concert to save it.</p>
+            </div>
+          )}
+
+          {visibleEvents.length === 0 && !(viewMode === "favorites" && favorites.length === 0) && (
             <div className="noResults">
               <p>No concerts match the selected filters.{" "}
                 <button
@@ -210,27 +247,42 @@ function App() {
           )}
 
           <ul className="concert-list">
-            {visibleEvents.map((event) => (
-              <li className="concert-card" key={event.id}>
-                <h3>{event.name}</h3>
-                <p>
-                  {event.date} | {event.genre}
-                </p>
-                <p>
-                  {event.location} | {event.venue}
-                  {event.isADAComp && (
-                    <span
-                      title="ADA Compliant"
-                      aria-label="ADA Compliant Venue"
-                      style={{ color: '#005eb8', marginLeft: '6px' }}
+            {visibleEvents.map((event) => {
+              const isFav = favorites.includes(event.id);
+              return (
+                <li className="concert-card" key={event.id}>
+                  <div className="card-header">
+                    <h3>{event.name}</h3>
+                    <button
+                      type="button"
+                      className={isFav ? "favorite-button favorited" : "favorite-button"}
+                      onClick={() => handleToggleFavorite(event.id)}
+                      aria-label={isFav ? `Unfavorite ${event.name}` : `Favorite ${event.name}`}
+                      aria-pressed={isFav}
+                      title={isFav ? "Remove from favorites" : "Add to favorites"}
                     >
-                      {'♿\uFE0E'}
-                    </span>
-                  )}
-                </p>
-                <a href={event.ticketLink}>Ticket Link</a> | ${event.ticketPrice}
-              </li>
-            ))}
+                      {isFav ? "★" : "☆"}
+                    </button>
+                  </div>
+                  <p>
+                    {event.date} | {event.genre}
+                  </p>
+                  <p>
+                    {event.location} | {event.venue}
+                    {event.isADAComp && (
+                      <span
+                        title="ADA Compliant"
+                        aria-label="ADA Compliant Venue"
+                        style={{ color: '#005eb8', marginLeft: '6px' }}
+                      >
+                        {'♿\uFE0E'}
+                      </span>
+                    )}
+                  </p>
+                  <a href={event.ticketLink}>Ticket Link</a> | ${event.ticketPrice}
+                </li>
+              );
+            })}
           </ul>
         </section>
         <EventCalendar eventsByDate={eventsByDate} />
