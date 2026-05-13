@@ -1,4 +1,22 @@
+# Node
 frontend/node_modules/
 frontend/dist/
+
+# Python
+backend/__pycache__/
+backend/.venv/
+backend/venv/
+backend/*.egg-info/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+frontend/.env
+frontend/.env.local
+backend/.env
+
+# Editors / OS
 .DS_Store
-database/events.db
+.vscode/
+.idea/

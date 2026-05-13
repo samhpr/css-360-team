@@ -1,8 +1,16 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+import { mockEvents } from "../data/events";
 import App from "../App";
+
+// The useEvents hook fetches from the FastAPI backend at runtime.
+// In tests we replace it with a synchronous fixture so the existing
+// assertions can stay synchronous.
+vi.mock("../hooks/useEvents", () => ({
+  useEvents: () => ({ events: mockEvents, loading: false, error: null }),
+}));
 
 describe("Sprint 1 interface behavior", () => {
   test("front page shows upcoming concerts and required concert details", () => {
@@ -69,7 +77,6 @@ describe("Sprint 1 interface behavior", () => {
     await user.selectOptions(sortSelect, "latest");
 
     const concertHeadings = screen.getAllByRole("heading", { level: 3 });
-    // Sunset Beats has the latest date (2026-05-02), should be first now
     expect(concertHeadings[0]).toHaveTextContent("Sunset Beats");
   });
   test("genre filter limits visible events", async () => {
@@ -104,36 +111,36 @@ describe("Sprint 1 interface behavior", () => {
   });
 
   test("zip code dropdown defaults to 'All zip codes'", () => {
-  render(<App />);
-  const zipSelect = screen.getByLabelText("Zip code");
-  expect(zipSelect).toHaveValue("All");
-});
+    render(<App />);
+    const zipSelect = screen.getByLabelText("Zip code");
+    expect(zipSelect).toHaveValue("All");
+  });
 
-test("selecting a zip code filters the concert list", async () => {
-  const user = userEvent.setup();
-  render(<App />);
+  test("selecting a zip code filters the concert list", async () => {
+    const user = userEvent.setup();
+    render(<App />);
 
-  const zipSelect = screen.getByLabelText("Zip code");
-  await user.selectOptions(zipSelect, "98103");
+    const zipSelect = screen.getByLabelText("Zip code");
+    await user.selectOptions(zipSelect, "98103");
 
-  expect(screen.getAllByText("Northside Noise Fest").length).toBeGreaterThan(0);
-  expect(screen.queryAllByText("Jazz by the Lake").length).toBe(0);
-});
+    expect(screen.getAllByText("Northside Noise Fest").length).toBeGreaterThan(0);
+    expect(screen.queryAllByText("Jazz by the Lake").length).toBe(0);
+  });
 
-test("Reset Filters returns zip code dropdown to 'All'", async () => {
-  const user = userEvent.setup();
-  render(<App />);
+  test("Reset Filters returns zip code dropdown to 'All'", async () => {
+    const user = userEvent.setup();
+    render(<App />);
 
-  const zipSelect = screen.getByLabelText("Zip code");
-  await user.selectOptions(zipSelect, "98103");
-  expect(zipSelect).toHaveValue("98103");
+    const zipSelect = screen.getByLabelText("Zip code");
+    await user.selectOptions(zipSelect, "98103");
+    expect(zipSelect).toHaveValue("98103");
 
-  // After filtering to a single event, the "Reset Filters" button in the visible
-  // list is the one we want — but there's also one in the no-results message.
-  // Use getAllByRole and grab the first matching reset button.
-  const resetButtons = screen.getAllByRole("button", { name: /reset filters/i });
-  await user.click(resetButtons[0]);
+    // After filtering to a single event, the "Reset Filters" button in the visible
+    // list is the one we want — but there's also one in the no-results message.
+    // Use getAllByRole and grab the first matching reset button.
+    const resetButtons = screen.getAllByRole("button", { name: /reset filters/i });
+    await user.click(resetButtons[0]);
 
-  expect(zipSelect).toHaveValue("All");
-});
+    expect(zipSelect).toHaveValue("All");
+  });
 });
