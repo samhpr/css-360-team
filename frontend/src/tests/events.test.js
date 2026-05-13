@@ -7,7 +7,7 @@ import {
   getZipCodeOptions,
   searchEvents,
   sortByDate,
-  sortByDateAscending
+  sortByDateAscending,
 } from "../lib/events";
 
 describe("event utilities", () => {
@@ -17,21 +17,21 @@ describe("event utilities", () => {
     expect(sorted[0].name).toBe("Jazz by the Lake");
     expect(sorted[1].name).toBe("Northside Noise Fest");
   });
-  
+
   test("sortByDate with 'soonest' returns ascending order", () => {
-  const sorted = sortByDate(mockEvents, "soonest");
-  expect(sorted[0].name).toBe("Jazz by the Lake");
-});
+    const sorted = sortByDate(mockEvents, "soonest");
+    expect(sorted[0].name).toBe("Jazz by the Lake");
+  });
 
-test("sortByDate with 'latest' returns descending order", () => {
-  const sorted = sortByDate(mockEvents, "latest");
-  expect(sorted[0].name).toBe("Sunset Beats");
-});
+  test("sortByDate with 'latest' returns descending order", () => {
+    const sorted = sortByDate(mockEvents, "latest");
+    expect(sorted[0].name).toBe("Sunset Beats");
+  });
 
-test("sortByDate defaults to 'soonest' when no order is given", () => {
-  const sorted = sortByDate(mockEvents);
-  expect(sorted[0].name).toBe("Jazz by the Lake");
-});
+  test("sortByDate defaults to 'soonest' when no order is given", () => {
+    const sorted = sortByDate(mockEvents);
+    expect(sorted[0].name).toBe("Jazz by the Lake");
+  });
 
   test("search returns partial and broad matches", () => {
     const byPartial = searchEvents(mockEvents, "north");
@@ -56,29 +56,29 @@ test("sortByDate defaults to 'soonest' when no order is given", () => {
   });
 
   test("filterByZipCode returns all events when zip is 'All'", () => {
-  const result = filterByZipCode(mockEvents, "All");
-  expect(result).toHaveLength(mockEvents.length);
-});
+    const result = filterByZipCode(mockEvents, "All");
+    expect(result).toHaveLength(mockEvents.length);
+  });
 
-test("filterByZipCode returns only events matching the given zip", () => {
-  const result = filterByZipCode(mockEvents, "98103");
-  expect(result).toHaveLength(1);
-  expect(result[0].name).toBe("Northside Noise Fest");
-});
+  test("filterByZipCode returns only events matching the given zip", () => {
+    const result = filterByZipCode(mockEvents, "98103");
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("Northside Noise Fest");
+  });
 
-test("filterByZipCode returns empty array when no events match", () => {
-  const result = filterByZipCode(mockEvents, "00000");
-  expect(result).toHaveLength(0);
-});
+  test("filterByZipCode returns empty array when no events match", () => {
+    const result = filterByZipCode(mockEvents, "00000");
+    expect(result).toHaveLength(0);
+  });
 
-test("getZipCodeOptions returns 'All' plus sorted unique zip codes", () => {
-  const options = getZipCodeOptions(mockEvents);
-  expect(options[0]).toBe("All");
-  expect(options).toContain("98004");
-  expect(options).toContain("98103");
-  // verify sort order (numeric strings sort lexically — 98004 < 98052 < 98101 < 98103 < 98402)
-  const withoutAll = options.slice(1);
-  const sortedCopy = [...withoutAll].sort();
-  expect(withoutAll).toEqual(sortedCopy);
-});
+  test("getZipCodeOptions returns 'All' plus sorted unique zip codes", () => {
+    const options = getZipCodeOptions(mockEvents);
+    expect(options[0]).toBe("All");
+    expect(options).toContain("98004");
+    expect(options).toContain("98103");
+    // verify sort order (numeric strings sort lexically — 98004 < 98052 < 98101 < 98103 < 98402)
+    const withoutAll = options.slice(1);
+    const sortedCopy = [...withoutAll].sort();
+    expect(withoutAll).toEqual(sortedCopy);
+  });
 });

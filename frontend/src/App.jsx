@@ -1,7 +1,6 @@
-import React from "react";
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import EventCalendar from "./components/EventCalendar";
-import { mockEvents } from "./data/events";
+import { useEvents } from "./hooks/useEvents";
 import {
   filterByGenre,
   filterByZipCode,
@@ -9,22 +8,24 @@ import {
   getGenreOptions,
   getZipCodeOptions,
   searchEvents,
-  sortByDate
+  sortByDate,
 } from "./lib/events";
 import { getFavorites, toggleFavorite } from "./lib/favorites";
 
 function App() {
+  const { events, loading, error } = useEvents();
+
   const [searchValue, setSearchValue] = useState("");
   const [genre, setGenre] = useState("All");
-  const [priceRange, setPriceRange] = useState('all');
-  const [adaOnly, setadaOnly] = useState('all');
+  const [priceRange, setPriceRange] = useState("all");
+  const [adaOnly, setadaOnly] = useState("all");
   const [sortOrder, setSortOrder] = useState("soonest");
   const [zipCode, setZipCode] = useState("All");
   const [favorites, setFavorites] = useState(() => getFavorites());
   const [viewMode, setViewMode] = useState("all"); // "all" or "favorites"
-  
-  const genreOptions = useMemo(() => getGenreOptions(mockEvents), []);
-  const zipCodeOptions = useMemo(() => getZipCodeOptions(mockEvents), []);
+
+  const genreOptions = useMemo(() => getGenreOptions(events), [events]);
+  const zipCodeOptions = useMemo(() => getZipCodeOptions(events), [events]);
 
   const resetFilters = () => {
     setSearchValue("");
@@ -36,58 +37,50 @@ function App() {
   };
 
   const handleToggleFavorite = (eventId) => {
-  const updated = toggleFavorite(eventId);
-  setFavorites(updated);
-};
+    const updated = toggleFavorite(eventId);
+    setFavorites(updated);
+  };
 
   const visibleEvents = useMemo(() => {
-    const searched = searchEvents(mockEvents, searchValue);
+    const searched = searchEvents(events, searchValue);
     const byGenre = filterByGenre(searched, genre);
     const byZipCode = filterByZipCode(byGenre, zipCode);
 
-    // sorts ticket prices into categories
     const byPrice = (() => {
-      if (priceRange === 'all') return byZipCode;
-      return byZipCode.filter(event => {
-        if (priceRange === '0-49')
-          return (event.ticketPrice < 50);
-        if (priceRange === '50-99')
-          return ((event.ticketPrice >= 50) && (event.ticketPrice < 100));
-        if (priceRange === '100-199')
-          return ((event.ticketPrice >= 100) && (event.ticketPrice < 200));
-        if (priceRange === 'geq200')
-          return (event.ticketPrice >= 200);
+      if (priceRange === "all") return byZipCode;
+      return byZipCode.filter((event) => {
+        if (priceRange === "0-49") return event.ticketPrice < 50;
+        if (priceRange === "50-99") return event.ticketPrice >= 50 && event.ticketPrice < 100;
+        if (priceRange === "100-199") return event.ticketPrice >= 100 && event.ticketPrice < 200;
+        if (priceRange === "geq200") return event.ticketPrice >= 200;
         return true;
       });
     })();
 
-    // sorts concerts by ada compliance
     const byADAComp = (() => {
-      if (adaOnly === 'all') return byPrice;
-      return byPrice.filter(event => event.isADAComp === true);
+      if (adaOnly === "all") return byPrice;
+      return byPrice.filter((event) => event.isADAComp === true);
     })();
 
-    const byFavorites = viewMode === "favorites"
-      ? byADAComp.filter((event) => favorites.includes(event.id))
-      : byADAComp;
+    const byFavorites =
+      viewMode === "favorites"
+        ? byADAComp.filter((event) => favorites.includes(event.id))
+        : byADAComp;
 
     return sortByDate(byFavorites, sortOrder);
-    }, [searchValue, genre, priceRange, adaOnly, sortOrder, zipCode, viewMode, favorites]);
+  }, [events, searchValue, genre, priceRange, adaOnly, sortOrder, zipCode, viewMode, favorites]);
 
   const eventsByDate = useMemo(() => getCalendarMap(visibleEvents), [visibleEvents]);
 
   return (
-    // site title
     <div className="app-shell">
       <header>
         <h1>Local Live</h1>
         <p className="subtitle">Find nearby concerts happening soon.</p>
       </header>
 
-      {/* container for search bar and filters: */}
       <section className="controls" aria-label="Search and filter controls">
         <label htmlFor="search">Search concerts</label>
-        {/* search bar */}
         <div className="search-row">
           <input
             id="search"
@@ -97,7 +90,6 @@ function App() {
             onChange={(event) => setSearchValue(event.target.value)}
             placeholder="Search name, city, venue, genre"
           />
-          {/* clear button only renders when search has text */}
           {searchValue && (
             <button type="button" onClick={() => setSearchValue("")}>
               Clear
@@ -105,9 +97,7 @@ function App() {
           )}
         </div>
 
-        {/* filter bar */}
         <div className="filterRow">
-          {/* genre filter */}
           <div className="filterGroup">
             <label htmlFor="genre-filter">Genre</label>
             <select
@@ -124,7 +114,6 @@ function App() {
             </select>
           </div>
 
-          {/* zip code filter */}
           <div className="filterGroup">
             <label htmlFor="zip-filter">Zip code</label>
             <select
@@ -140,11 +129,7 @@ function App() {
               ))}
             </select>
           </div>
-                
 
-
-                
-          {/* price filter */}
           <div className="filterGroup">
             <label htmlFor="price-filter">Price</label>
             <select
@@ -161,7 +146,6 @@ function App() {
             </select>
           </div>
 
-          {/* ada filter */}
           <div className="filterGroup">
             <label htmlFor="ada-filter">ADA Compliance</label>
             <select
@@ -175,7 +159,6 @@ function App() {
             </select>
           </div>
 
-          {/* sort filter */}
           <div className="filterGroup">
             <label htmlFor="sort-filter">Sort by date</label>
             <select
@@ -189,13 +172,15 @@ function App() {
             </select>
           </div>
 
-          {/* button to reset filters */}
-          <div className="filterGroup" style={{ flex: 'none', minWidth: "auto", justifyContent: 'flex-end' }}>
+          <div
+            className="filterGroup"
+            style={{ flex: "none", minWidth: "auto", justifyContent: "flex-end" }}
+          >
             <button
               type="button"
               className="link-button"
               onClick={resetFilters}
-              style={{ paddingBottom: '8px' }}
+              style={{ paddingBottom: "8px" }}
             >
               Reset Filters
             </button>
@@ -225,26 +210,33 @@ function App() {
       <main>
         <section aria-label="Upcoming concerts section">
           <h2>Upcoming Concerts</h2>
-          {/* if filters exclude all concerts, informs user and offers another reset filters button */}
-          {visibleEvents.length === 0 && viewMode === "favorites" && favorites.length === 0 && (
-            <div className="noResults">
-              <p>No favorites yet — tap the ☆ on any concert to save it.</p>
-            </div>
-          )}
 
-          {visibleEvents.length === 0 && !(viewMode === "favorites" && favorites.length === 0) && (
-            <div className="noResults">
-              <p>No concerts match the selected filters.{" "}
-                <button
-                  type="button"
-                  className="link-button"
-                  onClick={resetFilters}
-                >
-                  Reset Filters.
-                </button>
-              </p>
-            </div>
-          )}
+          {loading && <p>Loading concerts…</p>}
+          {error && <p role="alert">Could not load concerts. Is the API running?</p>}
+
+          {!loading &&
+            !error &&
+            visibleEvents.length === 0 &&
+            viewMode === "favorites" &&
+            favorites.length === 0 && (
+              <div className="noResults">
+                <p>No favorites yet — tap the ☆ on any concert to save it.</p>
+              </div>
+            )}
+
+          {!loading &&
+            !error &&
+            visibleEvents.length === 0 &&
+            !(viewMode === "favorites" && favorites.length === 0) && (
+              <div className="noResults">
+                <p>
+                  No concerts match the selected filters.{" "}
+                  <button type="button" className="link-button" onClick={resetFilters}>
+                    Reset Filters.
+                  </button>
+                </p>
+              </div>
+            )}
 
           <ul className="concert-list">
             {visibleEvents.map((event) => {
@@ -273,9 +265,9 @@ function App() {
                       <span
                         title="ADA Compliant"
                         aria-label="ADA Compliant Venue"
-                        style={{ color: '#005eb8', marginLeft: '6px' }}
+                        style={{ color: "#005eb8", marginLeft: "6px" }}
                       >
-                        {'♿\uFE0E'}
+                        {"♿︎"}
                       </span>
                     )}
                   </p>

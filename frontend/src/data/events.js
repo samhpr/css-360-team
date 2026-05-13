@@ -9,7 +9,7 @@ export const mockEvents = [
     venue: "Emerald Hall",
     ticketLink: "https://tickets.example.com/northside",
     ticketPrice: 120,
-    isADAComp: false
+    isADAComp: false,
   },
   {
     id: 2,
@@ -21,7 +21,7 @@ export const mockEvents = [
     venue: "Lakefront Arena",
     ticketLink: "https://tickets.example.com/jazz-lake",
     ticketPrice: 15,
-    isADAComp: true
+    isADAComp: true,
   },
   {
     id: 3,
@@ -33,7 +33,7 @@ export const mockEvents = [
     venue: "Pulse Club",
     ticketLink: "https://tickets.example.com/sunset-beats",
     ticketPrice: 55,
-    isADAComp: false
+    isADAComp: false,
   },
   {
     id: 4,
@@ -45,7 +45,7 @@ export const mockEvents = [
     venue: "Green Stage",
     ticketLink: "https://tickets.example.com/folk-park",
     ticketPrice: 30,
-    isADAComp: true
+    isADAComp: true,
   },
   {
     id: 5,
@@ -57,6 +57,6 @@ export const mockEvents = [
     venue: "Riverside Theater",
     ticketLink: "https://tickets.example.com/indie-friday",
     ticketPrice: 80,
-    isADAComp: true
-  }
+    isADAComp: true,
+  },
 ];

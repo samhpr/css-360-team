@@ -1,8 +1,16 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+import { mockEvents } from "../data/events";
 import App from "../App";
+
+// The useEvents hook fetches from the FastAPI backend at runtime.
+// In tests we replace it with a synchronous fixture so the existing
+// assertions can stay synchronous.
+vi.mock("../hooks/useEvents", () => ({
+  useEvents: () => ({ events: mockEvents, loading: false, error: null }),
+}));
 
 describe("Sprint 1 interface behavior", () => {
   test("front page shows upcoming concerts and required concert details", () => {
@@ -70,7 +78,6 @@ describe("Sprint 1 interface behavior", () => {
     await user.selectOptions(sortSelect, "latest");
 
     const concertHeadings = screen.getAllByRole("heading", { level: 3 });
-    // Sunset Beats has the latest date (2026-05-02), should be first now
     expect(concertHeadings[0]).toHaveTextContent("Sunset Beats");
   });
 
@@ -140,7 +147,6 @@ describe("Sprint 1 interface behavior", () => {
     render(<App />);
     const favoriteButtons = screen.getAllByRole("button", { name: /^Favorite / });
     expect(favoriteButtons.length).toBeGreaterThan(0);
-    // None should have aria-pressed="true" initially
     favoriteButtons.forEach((btn) => {
       expect(btn).toHaveAttribute("aria-pressed", "false");
     });
@@ -155,7 +161,6 @@ describe("Sprint 1 interface behavior", () => {
 
     await user.click(favoriteBtn);
 
-    // After clicking, button's label changes to "Unfavorite ..."
     const unfavoriteBtn = screen.getAllByRole("button", { name: /^Unfavorite / })[0];
     expect(unfavoriteBtn).toHaveAttribute("aria-pressed", "true");
   });
@@ -164,15 +169,12 @@ describe("Sprint 1 interface behavior", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    // Favorite the first concert
     const firstFavBtn = screen.getAllByRole("button", { name: /^Favorite / })[0];
     await user.click(firstFavBtn);
 
-    // Switch to favorites view
     const favoritesTab = screen.getByRole("button", { name: /^★ Favorites/ });
     await user.click(favoritesTab);
 
-    // Only 1 concert card should be visible
     const cards = screen.getAllByRole("heading", { level: 3 });
     expect(cards).toHaveLength(1);
   });
@@ -191,14 +193,11 @@ describe("Sprint 1 interface behavior", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    // Tab should start at "Favorites (0)"
     expect(screen.getByRole("button", { name: /Favorites \(0\)/ })).toBeInTheDocument();
 
-    // Favorite one concert
     const firstFavBtn = screen.getAllByRole("button", { name: /^Favorite / })[0];
     await user.click(firstFavBtn);
 
-    // Tab now reads "Favorites (1)"
     expect(screen.getByRole("button", { name: /Favorites \(1\)/ })).toBeInTheDocument();
   });
 });

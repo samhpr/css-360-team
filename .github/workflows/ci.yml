@@ -29,8 +29,18 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
       - name: Run unit tests
         run: npm test
 
       - name: Build app
         run: npm run build
+
+      - name: Security audit
+        run: npm audit --audit-level=high
+        continue-on-error: true
