@@ -42,6 +42,7 @@ describe("Sprint 1 interface behavior", () => {
     await user.click(clearButton);
     expect(searchInput).toHaveValue("");
   });
+
   test("clear button is hidden when search input is empty", () => {
     render(<App />);
     expect(screen.queryByRole("button", { name: "Clear" })).not.toBeInTheDocument();
@@ -79,6 +80,7 @@ describe("Sprint 1 interface behavior", () => {
     const concertHeadings = screen.getAllByRole("heading", { level: 3 });
     expect(concertHeadings[0]).toHaveTextContent("Sunset Beats");
   });
+
   test("genre filter limits visible events", async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -135,12 +137,67 @@ describe("Sprint 1 interface behavior", () => {
     await user.selectOptions(zipSelect, "98103");
     expect(zipSelect).toHaveValue("98103");
 
-    // After filtering to a single event, the "Reset Filters" button in the visible
-    // list is the one we want — but there's also one in the no-results message.
-    // Use getAllByRole and grab the first matching reset button.
     const resetButtons = screen.getAllByRole("button", { name: /reset filters/i });
     await user.click(resetButtons[0]);
 
     expect(zipSelect).toHaveValue("All");
+  });
+
+  test("favorite button is initially unfilled (☆) for all concerts", () => {
+    render(<App />);
+    const favoriteButtons = screen.getAllByRole("button", { name: /^Favorite / });
+    expect(favoriteButtons.length).toBeGreaterThan(0);
+    favoriteButtons.forEach((btn) => {
+      expect(btn).toHaveAttribute("aria-pressed", "false");
+    });
+  });
+
+  test("clicking a favorite button toggles its state", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const favoriteBtn = screen.getAllByRole("button", { name: /^Favorite / })[0];
+    expect(favoriteBtn).toHaveAttribute("aria-pressed", "false");
+
+    await user.click(favoriteBtn);
+
+    const unfavoriteBtn = screen.getAllByRole("button", { name: /^Unfavorite / })[0];
+    expect(unfavoriteBtn).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("'Favorites' view shows only favorited concerts", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const firstFavBtn = screen.getAllByRole("button", { name: /^Favorite / })[0];
+    await user.click(firstFavBtn);
+
+    const favoritesTab = screen.getByRole("button", { name: /^★ Favorites/ });
+    await user.click(favoritesTab);
+
+    const cards = screen.getAllByRole("heading", { level: 3 });
+    expect(cards).toHaveLength(1);
+  });
+
+  test("'Favorites' view shows empty-state message when nothing is favorited", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const favoritesTab = screen.getByRole("button", { name: /^★ Favorites/ });
+    await user.click(favoritesTab);
+
+    expect(screen.getByText(/No favorites yet/)).toBeInTheDocument();
+  });
+
+  test("favorites count in tab updates when favoriting", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(screen.getByRole("button", { name: /Favorites \(0\)/ })).toBeInTheDocument();
+
+    const firstFavBtn = screen.getAllByRole("button", { name: /^Favorite / })[0];
+    await user.click(firstFavBtn);
+
+    expect(screen.getByRole("button", { name: /Favorites \(1\)/ })).toBeInTheDocument();
   });
 });
