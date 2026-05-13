@@ -88,7 +88,7 @@ button {
   color: #0066cc;
   text-decoration: underline;
   padding: 0;
-  font: inherit; 
+  font: inherit;
   cursor: pointer;
 }
 
@@ -96,7 +96,6 @@ button {
   color: #004499;
   text-decoration: none;
 }
-
 
 /* Allows filter menus to fit together on one line  */
 
@@ -111,7 +110,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  flex: 1; 
+  flex: 1;
   min-width: 200px;
 }
 
@@ -119,7 +118,6 @@ button {
   min-width: 0;
   width: 100%;
 }
-
 
 @media (max-width: 640px) {
   .search-row {
