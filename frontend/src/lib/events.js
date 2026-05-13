@@ -44,3 +44,15 @@ export function getGenreOptions(events) {
   const genres = Array.from(new Set(events.map((event) => event.genre)));
   return ["All", ...genres.sort((a, b) => a.localeCompare(b))];
 }
+
+export function filterByZipCode(events, zipCode) {
+  if (!zipCode || zipCode === "All") {
+    return events;
+  }
+  return events.filter((event) => event.zipCode === zipCode);
+}
+
+export function getZipCodeOptions(events) {
+  const zips = Array.from(new Set(events.map((event) => event.zipCode).filter(Boolean)));
+  return ["All", ...zips.sort()];
+}

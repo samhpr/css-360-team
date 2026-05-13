@@ -102,6 +102,7 @@ button {
 
 .filterRow {
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
   margin-top: 1rem;
   width: 100%;
@@ -111,8 +112,9 @@ button {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  flex: 1; 
-  min-width: 200px;
+  flex: 1 1 160px;
+  min-width: 140px;
+  max-width: 220px;
 }
 
 .filterGroup select {

@@ -102,4 +102,38 @@ describe("Sprint 1 interface behavior", () => {
     expect(screen.getByLabelText("Genre")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Concert calendar section" })).toBeInTheDocument();
   });
+
+  test("zip code dropdown defaults to 'All zip codes'", () => {
+  render(<App />);
+  const zipSelect = screen.getByLabelText("Zip code");
+  expect(zipSelect).toHaveValue("All");
+});
+
+test("selecting a zip code filters the concert list", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+
+  const zipSelect = screen.getByLabelText("Zip code");
+  await user.selectOptions(zipSelect, "98103");
+
+  expect(screen.getAllByText("Northside Noise Fest").length).toBeGreaterThan(0);
+  expect(screen.queryAllByText("Jazz by the Lake").length).toBe(0);
+});
+
+test("Reset Filters returns zip code dropdown to 'All'", async () => {
+  const user = userEvent.setup();
+  render(<App />);
+
+  const zipSelect = screen.getByLabelText("Zip code");
+  await user.selectOptions(zipSelect, "98103");
+  expect(zipSelect).toHaveValue("98103");
+
+  // After filtering to a single event, the "Reset Filters" button in the visible
+  // list is the one we want — but there's also one in the no-results message.
+  // Use getAllByRole and grab the first matching reset button.
+  const resetButtons = screen.getAllByRole("button", { name: /reset filters/i });
+  await user.click(resetButtons[0]);
+
+  expect(zipSelect).toHaveValue("All");
+});
 });
