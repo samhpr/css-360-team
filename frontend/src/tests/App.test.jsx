@@ -1,8 +1,16 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+import { mockEvents } from "../data/events";
 import App from "../App";
+
+// The useEvents hook fetches from the FastAPI backend at runtime.
+// In tests we replace it with a synchronous fixture so the existing
+// assertions can stay synchronous.
+vi.mock("../hooks/useEvents", () => ({
+  useEvents: () => ({ events: mockEvents, loading: false, error: null }),
+}));
 
 describe("Sprint 1 interface behavior", () => {
   test("front page shows upcoming concerts and required concert details", () => {
@@ -69,7 +77,6 @@ describe("Sprint 1 interface behavior", () => {
     await user.selectOptions(sortSelect, "latest");
 
     const concertHeadings = screen.getAllByRole("heading", { level: 3 });
-    // Sunset Beats has the latest date (2026-05-02), should be first now
     expect(concertHeadings[0]).toHaveTextContent("Sunset Beats");
   });
   test("genre filter limits visible events", async () => {

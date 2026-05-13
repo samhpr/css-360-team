@@ -1,98 +1,106 @@
-import sqlite3
-import os
- 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "database", "events.db")
+"""Data access layer backed by Supabase (Postgres).
 
-def get_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    return conn
- 
- 
-def _row_to_dict(row: sqlite3.Row) -> dict:
+The frontend never talks to Supabase directly — it goes through this backend,
+which holds the service-role key. RLS on the `events` table blocks writes from
+the anon key, so the only writer is this module.
+"""
+
+from __future__ import annotations
+
+import os
+from functools import lru_cache
+
+from supabase import Client, create_client
+
+
+def _require_env(name: str) -> str:
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(
+            f"{name} is not set. Copy backend/.env.example to backend/.env and fill it in."
+        )
+    return value
+
+
+@lru_cache(maxsize=1)
+def _client() -> Client:
+    url = _require_env("SUPABASE_URL")
+    key = _require_env("SUPABASE_SERVICE_ROLE_KEY")
+    return create_client(url, key)
+
+
+def _row_to_dict(row: dict) -> dict:
     return {
-        "id":             str(row["id"]),
-        "name":           row["name"],
-        "genre":          row["genre"],
-        "date":           row["date"],
-        "location":       row["location"],
-        "venue":          row["venue"],
-        "ticketLink":     row["ticket_link"],
-        "ticketPrice":    row["ticket_price"],
-        "isADAComp":      bool(row["is_ada_compliant"]),
+        "id": str(row["id"]),
+        "name": row["name"],
+        "genre": row["genre"],
+        "date": row["date"],
+        "location": row["location"],
+        "venue": row["venue"],
+        "ticketLink": row["ticket_link"],
+        "ticketPrice": row["ticket_price"],
+        "isADAComp": bool(row["is_ada_compliant"]),
     }
- 
- 
+
+
 def query_events(
-    city:      str   = None,
-    genre:     str   = None,
-    keyword:   str   = None,
-    price_min: float = None,
-    price_max: float = None,
-    ada_only:  bool  = False,
-    sort:      str   = "soonest",
+    city: str | None = None,
+    genre: str | None = None,
+    keyword: str | None = None,
+    price_min: float | None = None,
+    price_max: float | None = None,
+    ada_only: bool = False,
+    sort: str = "soonest",
 ) -> list[dict]:
-    clauses: list[str] = ["1=1"]
-    params:  list      = []
- 
+    q = _client().table("events").select("*")
+
     if city:
-        clauses.append("location LIKE ?")
-        params.append(f"%{city}%")
+        q = q.ilike("location", f"%{city}%")
     if genre and genre.lower() not in ("all", ""):
-        clauses.append("genre LIKE ?")
-        params.append(f"%{genre}%")
+        q = q.ilike("genre", f"%{genre}%")
     if keyword:
         term = f"%{keyword}%"
-        clauses.append("(name LIKE ? OR venue LIKE ? OR location LIKE ? OR genre LIKE ?)")
-        params.extend([term, term, term, term])
+        q = q.or_(
+            ",".join(
+                [
+                    f"name.ilike.{term}",
+                    f"venue.ilike.{term}",
+                    f"location.ilike.{term}",
+                    f"genre.ilike.{term}",
+                ]
+            )
+        )
     if price_min is not None:
-        clauses.append("ticket_price >= ?")
-        params.append(price_min)
+        q = q.gte("ticket_price", price_min)
     if price_max is not None:
-        clauses.append("ticket_price <= ?")
-        params.append(price_max)
+        q = q.lte("ticket_price", price_max)
     if ada_only:
-        clauses.append("is_ada_compliant = 1")
- 
-    order = "ASC" if sort == "soonest" else "DESC"
-    sql = f"SELECT * FROM events WHERE {' AND '.join(clauses)} ORDER BY date {order}"
- 
-    with get_conn() as conn:
-        rows = conn.execute(sql, params).fetchall()
+        q = q.eq("is_ada_compliant", True)
+
+    q = q.order("date", desc=(sort != "soonest"))
+
+    rows = q.execute().data or []
     return [_row_to_dict(r) for r in rows]
- 
- 
+
+
 def get_event_by_id(event_id: str) -> dict | None:
-    with get_conn() as conn:
-        row = conn.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
-    return _row_to_dict(row) if row else None
- 
- 
-def upsert_events(events: list[dict]):
+    res = _client().table("events").select("*").eq("id", event_id).limit(1).execute()
+    rows = res.data or []
+    return _row_to_dict(rows[0]) if rows else None
+
+
+def upsert_events(events: list[dict]) -> None:
     """Insert or replace events — used when syncing from Ticketmaster."""
-    with get_conn() as conn:
-        conn.executemany("""
-            INSERT INTO events
-                (id, name, genre, date, location, venue, ticket_link, ticket_price, is_ada_compliant)
-            VALUES
-                (:id, :name, :genre, :date, :location, :venue, :ticket_link, :ticket_price, :is_ada_compliant)
-            ON CONFLICT(id) DO UPDATE SET
-                name             = excluded.name,
-                genre            = excluded.genre,
-                date             = excluded.date,
-                location         = excluded.location,
-                venue            = excluded.venue,
-                ticket_link      = excluded.ticket_link,
-                ticket_price     = excluded.ticket_price,
-                is_ada_compliant = excluded.is_ada_compliant
-        """, events)
-        conn.commit()
- 
- 
+    if not events:
+        return
+    _client().table("events").upsert(events, on_conflict="id").execute()
+
+
 def get_distinct_genres() -> list[str]:
-    with get_conn() as conn:
-        rows = conn.execute(
-            "SELECT DISTINCT genre FROM events ORDER BY genre"
-        ).fetchall()
-    return [r["genre"] for r in rows]
+    rows = _client().table("events").select("genre").execute().data or []
+    return sorted({r["genre"] for r in rows if r.get("genre")})
+
+
+def init_db() -> None:
+    """Verify connectivity at startup. The schema is managed in Supabase, not here."""
+    _client().table("events").select("id").limit(1).execute()

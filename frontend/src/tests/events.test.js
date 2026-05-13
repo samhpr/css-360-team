@@ -5,7 +5,7 @@ import {
   getCalendarMap,
   searchEvents,
   sortByDate,
-  sortByDateAscending
+  sortByDateAscending,
 } from "../lib/events";
 
 describe("event utilities", () => {
@@ -15,21 +15,21 @@ describe("event utilities", () => {
     expect(sorted[0].name).toBe("Jazz by the Lake");
     expect(sorted[1].name).toBe("Northside Noise Fest");
   });
-  
+
   test("sortByDate with 'soonest' returns ascending order", () => {
-  const sorted = sortByDate(mockEvents, "soonest");
-  expect(sorted[0].name).toBe("Jazz by the Lake");
-});
+    const sorted = sortByDate(mockEvents, "soonest");
+    expect(sorted[0].name).toBe("Jazz by the Lake");
+  });
 
-test("sortByDate with 'latest' returns descending order", () => {
-  const sorted = sortByDate(mockEvents, "latest");
-  expect(sorted[0].name).toBe("Sunset Beats");
-});
+  test("sortByDate with 'latest' returns descending order", () => {
+    const sorted = sortByDate(mockEvents, "latest");
+    expect(sorted[0].name).toBe("Sunset Beats");
+  });
 
-test("sortByDate defaults to 'soonest' when no order is given", () => {
-  const sorted = sortByDate(mockEvents);
-  expect(sorted[0].name).toBe("Jazz by the Lake");
-});
+  test("sortByDate defaults to 'soonest' when no order is given", () => {
+    const sorted = sortByDate(mockEvents);
+    expect(sorted[0].name).toBe("Jazz by the Lake");
+  });
 
   test("search returns partial and broad matches", () => {
     const byPartial = searchEvents(mockEvents, "north");
