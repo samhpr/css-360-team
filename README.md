@@ -1,28 +1,46 @@
-# CSS 360 Team Project - Sprint 1 Starter
+# Local Live (CSS 360 Team Project)
 
-This repository contains a Sprint 1 frontend baseline for Local Live, a concert discovery web app.
+Concert discovery web app. React frontend, FastAPI backend, Supabase (Postgres)
+for storage.
 
-## Sprint 1 Coverage
+## How it fits together
 
-- Upcoming concerts on home page
-- Concert details (name, location, venue, ticket link)
-- Date-based ordering (soonest first)
-- Search with partial matching
-- Clear button on search input
-- Genre filter
-- Calendar view with events grouped by date
-- Basic accessibility affordances
+```
+React (Vite)  ──HTTP──▶  FastAPI  ──supabase-py──▶  Supabase (Postgres)
+```
 
-## TDD Presentation Notes
+The frontend talks only to the backend. The backend holds the Supabase
+service-role key and is the only thing that writes to the database. Row Level
+Security on the `events` table allows SELECT for the anon role and denies
+writes to anyone except the service-role.
 
-Use [docs/tdd-presentation-notes.md](docs/tdd-presentation-notes.md) for a short class-ready summary of the test-first approach used for Sprint 1.
+## Setup
 
-## Local Development
+### 1. Supabase
 
-1. Install Node.js 20+
-2. Move into frontend folder
-3. Install dependencies
-4. Start development server
+1. Create a Supabase project.
+2. In the SQL Editor, run [database/supabase_schema.sql](database/supabase_schema.sql).
+3. Copy the project URL and the `service_role` key from **Project Settings → API**.
+
+### 2. Backend
+
+Create `backend/.env` (gitignored) with:
+
+```
+SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+TICKETMASTER_API_KEY=
+```
+
+Install and run:
+
+```bash
+cd backend
+pip install fastapi 'uvicorn[standard]' httpx python-dotenv pydantic supabase
+uvicorn main:app --reload --port 8000
+```
+
+### 3. Frontend
 
 ```bash
 cd frontend
@@ -30,26 +48,27 @@ npm install
 npm run dev
 ```
 
-## Test Commands
+The frontend defaults to `http://localhost:8000` for the API. To point at a
+different host, set `VITE_API_BASE_URL` in `frontend/.env.local`.
+
+## Tests
 
 ```bash
 cd frontend
 npm test
-npm run test:watch
 ```
 
-## CI/CD
+## CI
 
-GitHub Actions workflow is at .github/workflows/ci.yml.
+GitHub Actions workflow is at [.github/workflows/ci.yml](.github/workflows/ci.yml).
+It runs on push and pull request to `main` and does:
 
-It runs on push and pull request to main and does:
+1. `npm install`
+2. `npm test`
+3. `npm run build`
 
-1. npm install
-2. npm test
-3. npm run build
+## Suggested branching
 
-## Suggested Branching
-
-1. Create feature branches from main (example: feature/story-sort-by-date)
-2. Open pull request to main
-3. Require CI to pass before merge
+1. Create feature branches from `main` (example: `feature/story-sort-by-date`).
+2. Open a pull request to `main`.
+3. Require CI to pass before merge.
