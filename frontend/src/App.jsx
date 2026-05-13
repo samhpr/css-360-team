@@ -3,8 +3,10 @@ import EventCalendar from "./components/EventCalendar";
 import { useEvents } from "./hooks/useEvents";
 import {
   filterByGenre,
+  filterByZipCode,
   getCalendarMap,
   getGenreOptions,
+  getZipCodeOptions,
   searchEvents,
   sortByDate,
 } from "./lib/events";
@@ -17,8 +19,10 @@ function App() {
   const [priceRange, setPriceRange] = useState("all");
   const [adaOnly, setadaOnly] = useState("all");
   const [sortOrder, setSortOrder] = useState("soonest");
+  const [zipCode, setZipCode] = useState("All");
 
   const genreOptions = useMemo(() => getGenreOptions(events), [events]);
+  const zipCodeOptions = useMemo(() => getZipCodeOptions(events), [events]);
 
   const resetFilters = () => {
     setSearchValue("");
@@ -26,15 +30,17 @@ function App() {
     setPriceRange("all");
     setadaOnly("all");
     setSortOrder("soonest");
+    setZipCode("All");
   };
 
   const visibleEvents = useMemo(() => {
     const searched = searchEvents(events, searchValue);
     const byGenre = filterByGenre(searched, genre);
+    const byZipCode = filterByZipCode(byGenre, zipCode);
 
     const byPrice = (() => {
-      if (priceRange === "all") return byGenre;
-      return byGenre.filter((event) => {
+      if (priceRange === "all") return byZipCode;
+      return byZipCode.filter((event) => {
         if (priceRange === "0-49") return event.ticketPrice < 50;
         if (priceRange === "50-99") return event.ticketPrice >= 50 && event.ticketPrice < 100;
         if (priceRange === "100-199") return event.ticketPrice >= 100 && event.ticketPrice < 200;
@@ -49,7 +55,7 @@ function App() {
     })();
 
     return sortByDate(byADAComp, sortOrder);
-  }, [events, searchValue, genre, priceRange, adaOnly, sortOrder]);
+  }, [events, searchValue, genre, priceRange, adaOnly, sortOrder, zipCode]);
 
   const eventsByDate = useMemo(() => getCalendarMap(visibleEvents), [visibleEvents]);
 
@@ -90,6 +96,22 @@ function App() {
               {genreOptions.map((option) => (
                 <option key={option} value={option}>
                   {option}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="filterGroup">
+            <label htmlFor="zip-filter">Zip code</label>
+            <select
+              id="zip-filter"
+              name="zip-filter"
+              value={zipCode}
+              onChange={(event) => setZipCode(event.target.value)}
+            >
+              {zipCodeOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option === "All" ? "All zip codes" : option}
                 </option>
               ))}
             </select>
