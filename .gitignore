@@ -16,6 +16,9 @@ frontend/.env
 frontend/.env.local
 backend/.env
 
+# Release artifacts
+artifacts/
+
 # Editors / OS
 .DS_Store
 .vscode/
