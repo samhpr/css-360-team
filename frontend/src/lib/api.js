@@ -1,9 +1,19 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+import { supabase } from "./supabase";
 
 export async function fetchEvents() {
-  const res = await fetch(`${API_BASE_URL}/api/events`);
-  if (!res.ok) {
-    throw new Error(`GET /api/events failed: ${res.status}`);
-  }
-  return res.json();
+  const { data, error } = await supabase
+    .from("events")
+    .select("id, name, genre, date, location, venue, ticket_link, ticket_price, is_ada_compliant");
+  if (error) throw error;
+  return data.map((row) => ({
+    id: row.id,
+    name: row.name,
+    genre: row.genre,
+    date: row.date,
+    location: row.location,
+    venue: row.venue,
+    ticketLink: row.ticket_link,
+    ticketPrice: row.ticket_price,
+    isADAComp: row.is_ada_compliant,
+  }));
 }
