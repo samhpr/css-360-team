@@ -143,6 +143,26 @@ Then run:
 ./scripts/cicd.sh
 ```
 
+### Secrets required for full CI→push→verify
+
+If you want GitHub Actions to build, push, and verify Docker images automatically, add these repository secrets (Repository → Settings → Secrets → Actions):
+
+- `DOCKER_USERNAME` — Docker registry username (or service account)
+- `DOCKER_PASSWORD` — Docker registry password or access token
+
+Optional values you can set as repository variables or secrets if you want the workflow to push/verify automatically:
+
+- `REGISTRY` — Registry prefix (e.g. `docker.io/myuser` or `ghcr.io/myorg`)
+- `DEPLOY_URL` — Public URL for deployment verification (used to curl `/health`)
+
+Also add the backend runtime secrets if your pipeline will exercise the live backend or run smoke checks:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `TICKETMASTER_API_KEY`
+
+Add these to the repository Secrets (recommended) or to an Environment for the `main` branch if you want approvals before deploys.
+
 ### Docker image contents
 
 The [Dockerfile](Dockerfile) is a multi-stage build:
