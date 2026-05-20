@@ -87,6 +87,10 @@ jobs:
           fi
 
           cleanup() {
+            echo "----- Container status (if available) -----"
+            docker ps -a --filter name=local-live-smoke || true
+            echo "----- Container logs (if available) -----"
+            docker logs local-live-smoke || true
             docker rm -f local-live-smoke >/dev/null 2>&1 || true
           }
           trap cleanup EXIT
@@ -98,6 +102,14 @@ jobs:
             -e SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY}" \
             -e TICKETMASTER_API_KEY="${TICKETMASTER_API_KEY}" \
             "${IMAGE_LOCAL_TAG}"
+
+          # Give the process a moment to initialize before health probing.
+          sleep 3
+
+          if [[ "$(docker inspect -f '{{.State.Running}}' local-live-smoke 2>/dev/null || echo false)" != "true" ]]; then
+            echo "Container exited before smoke checks." >&2
+            exit 1
+          fi
 
           for i in {1..30}; do
             if curl -fsS "http://127.0.0.1:${SMOKE_PORT}/health" >/dev/null; then
