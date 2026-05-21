@@ -107,7 +107,7 @@ function App() {
           }
 
           const searchLength = searchText.length;
-          const maxCompare = Math.min(eventName.length, searchLength + 2);
+          const maxCompare = eventName.length;
 
           let prev = Array.from({ length: maxCompare + 1 }, (_, index) => index);
 
@@ -587,7 +587,12 @@ function App() {
             viewMode === "favorites" &&
             favorites.length === 0 && (
               <div className="noResults">
-                <p>No favorites yet — tap the ☆ on any concert to save it.</p>
+                <p>
+                  No favorites yet — tap the ☆ on any concert to save it.{" "}
+                  <button type="button" className="link-button" onClick={resetFilters}>
+                    Reset Filters.
+                  </button>
+                </p>
               </div>
             )}
 
