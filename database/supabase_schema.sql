@@ -8,6 +8,7 @@ create table if not exists public.events (
   date             date        not null,
   location         text        not null,
   venue            text        not null,
+  zip_code         text        not null,
   ticket_link      text        not null,
   ticket_price     integer     not null,
   is_ada_compliant boolean     not null default false
@@ -24,7 +25,7 @@ create policy "Public read access"
 
 -- seed data
 insert into public.events
-  (id, name, genre, date, location, venue, ticket_link, ticket_price, is_ada_compliant)
+  (id, name, genre, date, location, venue, zip_code, ticket_link, ticket_price, is_ada_compliant)
 values
   ('1', 'Northside Noise Fest', 'Rock',       '2026-04-25', 'Seattle, WA',  'Emerald Hall',      'https://tickets.example.com/northside',   120, false),
   ('2', 'Jazz by the Lake',     'Jazz',       '2026-04-24', 'Bellevue, WA', 'Lakefront Arena',   'https://tickets.example.com/jazz-lake',    15, true),
