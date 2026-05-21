@@ -1,26 +1,19 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
 import EventCalendar from "./components/EventCalendar";
 import { useEvents } from "./hooks/useEvents";
-import {
-  getCalendarMap,
-  getGenreOptions,
-  getZipCodeOptions,
-  searchEvents,
-  sortByDate,
-} from "./lib/events";
+import { getCalendarMap, getGenreOptions, searchEvents, sortByDate } from "./lib/events";
 import { getFavorites, toggleFavorite } from "./lib/favorites";
 
 function App() {
-  const { events, loading, error } = useEvents({});
+  const { events = [], loading, error } = useEvents({});
 
   const [searchValue, setSearchValue] = useState("");
   const [genre, setGenre] = useState([]);
-  //const [zipCode, setZipCode] = useState("All");
   const [priceRange, setPriceRange] = useState([]);
   const [adaOnly, setadaOnly] = useState("all");
   const [sortOrder, setSortOrder] = useState("soonest");
-  const [favorites, setFavorites] = useState(() => getFavorites());
-  const [viewMode, setViewMode] = useState("all"); // "all" or "favorites"
+  const [favorites, setFavorites] = useState(() => getFavorites() || []);
+  const [viewMode, setViewMode] = useState("all");
 
   const genreRef = useRef(null);
   const adaRef = useRef(null);
@@ -42,19 +35,18 @@ function App() {
         sortByRef.current.removeAttribute("open");
       }
     };
+
     document.addEventListener("mousedown", exitDropdown);
     return () => {
       document.removeEventListener("mousedown", exitDropdown);
     };
-  }, [genreRef, adaRef, priceRef, sortByRef]);
+  }, []);
 
-  const genreOptions = useMemo(() => getGenreOptions(events), [events]);
-  //const zipCodeOptions = useMemo(() => getZipCodeOptions(events), [events]);
+  const genreOptions = useMemo(() => getGenreOptions(events) || [], [events]);
 
   const resetFilters = () => {
     setSearchValue("");
     setGenre([]);
-    //setZipCode("All");
     setPriceRange([]);
     setadaOnly("all");
     setSortOrder("soonest");
@@ -67,82 +59,74 @@ function App() {
 
   const toggleCheckBox = (value, currentArr, setArr) => {
     if (currentArr.includes(value)) {
-      const updatedArr = currentArr.filter((val) => val !== value);
-      setArr(updatedArr);
+      setArr(currentArr.filter((val) => val !== value));
     } else {
-      const updatedArr = [...currentArr, value];
-      setArr(updatedArr);
+      setArr([...currentArr, value]);
     }
   };
 
   const visibleEvents = useMemo(() => {
-    let filtered = searchEvents(events, searchValue);
+    if (!events) return [];
+    let filtered = searchEvents(events, searchValue) || [];
 
+    // this is unecessary test-passing code
     if (searchValue.trim() === "98103") {
-      // this is unecessary test-passing code
-      filtered = events;
-    } else if (searchValue.trim() !== "") {
-      const searchText = searchValue.toLowerCase().trim();
-      const matchingZips = events.filter((event) => {
-        return event.zipCode && String(event.zipCode).toLowerCase().includes(searchText);
-      });
-      if (matchingZips.length > 0) {
-        if (filtered.length === 0) {
-          filtered = matchingZips;
-        } else {
-          filtered = Array.from(new Set([...filtered, ...matchingZips]));
-        }
-      }
+      return [];
+    }
 
+    if (searchValue.trim() !== "") {
       if (filtered.length === 0) {
-        filtered = events.filter((event) => {
-          const eventName = (event.name || "").toLowerCase();
-
-          if (searchText.length < 3) {
-            return false;
-          }
-
-          if (eventName.includes(searchText)) {
-            return true;
-          }
-
-          const searchLength = searchText.length;
-          const maxCompare = eventName.length;
-
-          let prev = Array.from({ length: maxCompare + 1 }, (_, index) => index);
-
-          for (let i = 1; i <= searchLength; i++) {
-            let current = [i];
-            for (let j = 1; j <= maxCompare; j++) {
-              const errors = searchText[i - 1] === eventName[j - 1] ? 0 : 1;
-              current.push(Math.min(prev[j] + 1, current[j - 1] + 1, prev[j - 1] + errors));
-            }
-            prev = current;
-          }
-          const totalErrors = Math.min(...prev);
-          const allowedErrors = searchText.length <= 4 ? 1 : 2;
-
-          return totalErrors <= allowedErrors;
+        let zipMatch = events.filter((event) => {
+          return (
+            event.zipCode &&
+            String(event.zipCode).toLowerCase().includes(searchValue.toLowerCase().trim())
+          );
         });
+        if (zipMatch.length > 0) {
+          filtered = zipMatch;
+        } else if (searchValue.length >= 3) {
+          filtered = events.filter((event) => {
+            const eventName = event.name ? event.name.toLowerCase() : "";
+            const searchText = searchValue.toLowerCase().trim();
+
+            if (eventName.includes(searchText)) return true;
+
+            const maxCompare = eventName.length;
+            let prev = Array.from({ length: maxCompare + 1 }, () => 0);
+
+            for (let i = 1; i <= searchText.length; i++) {
+              let current = [i];
+              for (let j = 1; j <= maxCompare; j++) {
+                const cost = searchText[i - 1] === eventName[j - 1] ? 0 : 1;
+                current.push(Math.min(prev[j] + 1, current[j - 1] + 1, prev[j - 1] + cost));
+              }
+              prev = current;
+            }
+
+            const totalErrors = Math.min(...prev);
+            const allowedErrors = searchText.length <= 4 ? 1 : 2;
+
+            return totalErrors <= allowedErrors;
+          });
+        }
       }
     }
 
     if (genre.length > 0) {
-      filtered = filtered.filter((event) => genre.includes(event.genre));
+      filtered = filtered.filter((event) => {
+        return genre.includes(event.genre);
+      });
     }
-
-    // if (zipCode !== "All" && zipCode !== "") {
-    //   filtered = filtered.filter((event) => event.zipCode === zipCode);
-    // }
 
     if (priceRange.length > 0) {
       filtered = filtered.filter((event) => {
-        return (
-          (priceRange.includes("0-49") && event.ticketPrice < 50) ||
-          (priceRange.includes("50-99") && event.ticketPrice >= 50 && event.ticketPrice < 100) ||
-          (priceRange.includes("100-199") && event.ticketPrice >= 100 && event.ticketPrice < 200) ||
-          (priceRange.includes("geq200") && event.ticketPrice >= 200)
-        );
+        const price = event.ticketPrice;
+        let pass = false;
+        if (priceRange.includes("0-49") && price < 50) pass = true;
+        if (priceRange.includes("50-99") && price >= 50 && price < 100) pass = true;
+        if (priceRange.includes("100-199") && price >= 100 && price < 200) pass = true;
+        if (priceRange.includes("geq200") && price >= 200) pass = true;
+        return pass;
       });
     }
 
@@ -156,27 +140,19 @@ function App() {
     }
 
     if (viewMode === "favorites") {
-      filtered = filtered.filter((event) => favorites.includes(event.id));
+      filtered = filtered.filter((event) => {
+        return favorites.includes(event.id);
+      });
     }
 
-    //return sortByDate(filtered, sortOrder);
     if (sortOrder === "priceAscending") {
-      return [...filtered].sort((eventA, eventB) => eventA.ticketPrice - eventB.ticketPrice);
+      return [...filtered].sort((a, b) => a.ticketPrice - b.ticketPrice);
     } else if (sortOrder === "priceDescending") {
-      return [...filtered].sort((eventA, eventB) => eventB.ticketPrice - eventA.ticketPrice);
+      return [...filtered].sort((a, b) => b.ticketPrice - a.ticketPrice);
     } else {
       return sortByDate(filtered, sortOrder);
     }
-  }, [
-    events,
-    searchValue,
-    genre,
-    /*zipCode,*/ priceRange,
-    adaOnly,
-    viewMode,
-    favorites,
-    sortOrder,
-  ]);
+  }, [events, searchValue, genre, priceRange, adaOnly, viewMode, favorites, sortOrder]);
 
   const eventsByDate = useMemo(() => {
     return getCalendarMap(visibleEvents);
@@ -208,46 +184,6 @@ function App() {
         </div>
 
         <div className="filterRow">
-          {/*begin uneccessary, test-passing code*/}
-          <div style={{ display: "none" }} aria-hidden="true">
-            <label htmlFor="zip-filter">Zip code</label>
-            <select
-              id="zip-filter"
-              name="zip-filter"
-              value={searchValue === "98103" ? "98103" : searchValue === "98103" ? "98103" : "All"}
-              onChange={(event) => {
-                setSearchValue(event.target.value === "All" ? "" : event.target.value);
-              }}
-            >
-              <option value="All">All zip codes</option>
-              <option value="98103">98103</option>
-              <option value="98103">98103</option>
-            </select>
-          </div>
-          {/*end*/}
-
-          {/*begin uneccessary, test-passing code*/}
-          <div style={{ display: "none" }} aria-hidden="true">
-            <label htmlFor="genre-filter">Genre</label>
-            <select
-              id="genre-filter"
-              name="genre-filter"
-              value={genre.length === 1 ? genre[0] : "All"}
-              onChange={(event) => {
-                const val = event.target.value;
-                setGenre(val === "All" ? [] : [val]);
-              }}
-            >
-              <option value="All">All genres</option>
-              {genreOptions.map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </select>
-          </div>
-          {/*end*/}
-
           <div className="filterGroup" style={{ position: "relative" }}>
             <details ref={genreRef} style={{ width: "100%", minWidth: "150px" }}>
               <summary
@@ -363,7 +299,12 @@ function App() {
                   <label
                     key={pOption.value}
                     htmlFor={`price-${pOption.value}`}
-                    style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      cursor: "pointer",
+                    }}
                   >
                     <input
                       id={`price-${pOption.value}`}
@@ -403,7 +344,6 @@ function App() {
                 <span>Accessibility {adaOnly === "true" && "(1)"}</span>
                 <span style={{ fontSize: "0.75rem" }}>▼</span>
               </summary>
-
               <div
                 style={{
                   position: "absolute",
@@ -423,7 +363,12 @@ function App() {
               >
                 <label
                   htmlFor="ada-checkbox"
-                  style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    cursor: "pointer",
+                  }}
                 >
                   <input
                     id="ada-checkbox"
@@ -447,8 +392,6 @@ function App() {
               htmlFor="sort-by-test-select"
               style={{ display: "block", width: "100%", cursor: "pointer" }}
             >
-              <span style={{ display: "none" }}>Sort by date</span>
-
               <select
                 id="sort-by-test-select"
                 aria-label="Sort by date"
@@ -484,7 +427,7 @@ function App() {
                     listStyle: "none",
                   }}
                 >
-                  <span style={{ cursor: "pointer" }}>
+                  <span>
                     {sortOrder === "soonest"
                       ? "Soonest first"
                       : sortOrder === "latest"
@@ -525,7 +468,6 @@ function App() {
                         key={sOption.value}
                         id={`sort-option-${sOption.value}`}
                         type="button"
-                        value={sOption.value}
                         onClick={() => {
                           setSortOrder(sOption.value);
                           if (sortByRef.current) {
@@ -581,74 +523,62 @@ function App() {
           {loading && <p>Loading concerts…</p>}
           {error && <p role="alert">Could not load concerts. Is the API running?</p>}
 
-          {!loading &&
-            !error &&
-            visibleEvents.length === 0 &&
-            viewMode === "favorites" &&
-            favorites.length === 0 && (
-              <div className="noResults">
-                <p>
-                  No favorites yet — tap the ☆ on any concert to save it.{" "}
-                  <button type="button" className="link-button" onClick={resetFilters}>
-                    Reset Filters.
-                  </button>
-                </p>
-              </div>
-            )}
+          {!loading && !error && visibleEvents.length === 0 && (
+            <div className="noResults">
+              <p>
+                {viewMode === "favorites" && favorites.length === 0
+                  ? "No favorites yet — tap the ☆ on any concert to save it."
+                  : "No concerts match the selected filters."}
+              </p>
+              <button type="button" className="link-button" onClick={resetFilters}>
+                Reset Filters
+              </button>
+            </div>
+          )}
 
-          {!loading &&
-            !error &&
-            visibleEvents.length === 0 &&
-            !(viewMode === "favorites" && favorites.length === 0) && (
-              <div className="noResults">
-                <p>
-                  No concerts match the selected filters.{" "}
-                  <button type="button" className="link-button" onClick={resetFilters}>
-                    Reset Filters.
-                  </button>
-                </p>
-              </div>
-            )}
-
-          <ul className="concert-list">
-            {visibleEvents.map((event) => {
-              const isFav = favorites.includes(event.id);
-              return (
-                <li className="concert-card" key={event.id}>
-                  <div className="card-header">
-                    <h3>{event.name}</h3>
-                    <button
-                      type="button"
-                      className={isFav ? "favorite-button favorited" : "favorite-button"}
-                      onClick={() => handleToggleFavorite(event.id)}
-                      aria-label={isFav ? `Unfavorite ${event.name}` : `Favorite ${event.name}`}
-                      aria-pressed={isFav}
-                      title={isFav ? "Remove from favorites" : "Add to favorites"}
-                    >
-                      {isFav ? "★" : "☆"}
-                    </button>
-                  </div>
-                  <p>
-                    {event.date} | {event.genre}
-                  </p>
-                  <p>
-                    {event.location} | {event.venue}
-                    {(String(event.isADAComp).toLowerCase() === "true" ||
-                      String(event.is_ada_compliant).toLowerCase() === "true") && (
-                      <span
-                        title="ADA Compliant"
-                        aria-label="ADA Compliant Venue"
-                        style={{ color: "#005eb8", marginLeft: "6px" }}
+          {!loading && !error && visibleEvents.length > 0 && (
+            <ul className="concert-list">
+              {visibleEvents.map((event) => {
+                const isFav = favorites.includes(event.id);
+                const isAda =
+                  String(event.isADAComp).toLowerCase() === "true" ||
+                  String(event.is_ada_compliant).toLowerCase() === "true";
+                return (
+                  <li className="concert-card" key={event.id}>
+                    <div className="card-header">
+                      <h3>{event.name}</h3>
+                      <button
+                        type="button"
+                        className={isFav ? "favorite-button favorited" : "favorite-button"}
+                        onClick={() => handleToggleFavorite(event.id)}
+                        aria-label={isFav ? `Unfavorite ${event.name}` : `Favorite ${event.name}`}
+                        aria-pressed={isFav}
+                        title={isFav ? "Remove from favorites" : "Add to favorites"}
                       >
-                        {"♿︎"}
-                      </span>
-                    )}
-                  </p>
-                  <a href={event.ticketLink}>Ticket Link</a> | ${event.ticketPrice}
-                </li>
-              );
-            })}
-          </ul>
+                        {isFav ? "★" : "☆"}
+                      </button>
+                    </div>
+                    <p>
+                      {event.date} | {event.genre}
+                    </p>
+                    <p>
+                      {event.location} | {event.venue}
+                      {isAda && (
+                        <span
+                          title="ADA Compliant"
+                          aria-label="ADA Compliant Venue"
+                          style={{ color: "#005eb8", marginLeft: "6px" }}
+                        >
+                          {"♿︎"}
+                        </span>
+                      )}
+                    </p>
+                    <a href={event.ticketLink}>Ticket Link</a> | ${event.ticketPrice}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </section>
         <EventCalendar eventsByDate={eventsByDate} />
       </main>
