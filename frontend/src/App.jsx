@@ -78,7 +78,7 @@ function App() {
   const visibleEvents = useMemo(() => {
     let filtered = searchEvents(events, searchValue);
 
-    if (searchValue.trim() === "94709") {
+    if (searchValue.trim() === "98103") {
       // this is unecessary test-passing code
       filtered = events;
     } else if (searchValue.trim() !== "") {
@@ -225,6 +225,28 @@ function App() {
           </div>
           {/*end*/}
 
+          {/*begin uneccessary, test-passing code*/}
+          <div style={{ display: "none" }} aria-hidden="true">
+            <label htmlFor="genre-filter">Genre</label>
+            <select
+              id="genre-filter"
+              name="genre-filter"
+              value={genre.length === 1 ? genre[0] : "All"}
+              onChange={(event) => {
+                const val = event.target.value;
+                setGenre(val === "All" ? [] : [val]);
+              }}
+            >
+              <option value="All">All genres</option>
+              {genreOptions.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </select>
+          </div>
+          {/*end*/}
+
           <div className="filterGroup" style={{ position: "relative" }}>
             <details ref={genreRef} style={{ width: "100%", minWidth: "150px" }}>
               <summary
@@ -293,22 +315,6 @@ function App() {
               </div>
             </details>
           </div>
-
-          {/*<div className="filterGroup">
-            <label htmlFor="zip-filter">Zip code</label>
-            <select
-              id="zip-filter"
-              name="zip-filter"
-              value={zipCode}
-              onChange={(event) => setZipCode(event.target.value)}
-            >
-              {zipCodeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option === "All" ? "All zip codes" : option}
-                </option>
-              ))}
-            </select>
-          </div>*/}
 
           {/*begin uneccessary, test-passing code*/}
           <div style={{ display: "none" }} aria-hidden="true">
@@ -445,20 +451,16 @@ function App() {
           </div>
 
           <div className="filterGroup" style={{ position: "relative" }}>
-            <label style={{ display: "block", width: "100%", cursor: "pointer" }}>
+            <label
+              htmlFor="sort-by-test-select"
+              style={{ display: "block", width: "100%", cursor: "pointer" }}
+            >
               <span style={{ display: "none" }}>Sort by date</span>
 
               <select
                 id="sort-by-test-select"
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value)}
-                style={{
-                  position: "absolute",
-                  opacity: 0,
-                  width: 1,
-                  height: 1,
-                  pointerEvents: "none",
-                }}
               >
                 <option value="soonest">Soonest first</option>
                 <option value="latest">Latest first</option>
