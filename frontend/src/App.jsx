@@ -82,12 +82,12 @@ function App() {
       const searchText = searchValue.toLowerCase().trim();
       const matchingZips = events.filter((event) => {
         return event.zipCode && String(event.zipCode).toLowerCase().includes(searchText);
-      })
+      });
       if (matchingZips.length > 0) {
         if (filtered.length === 0) {
           filtered = matchingZips;
         } else {
-          filtered = Array.from(new Set ([...filtered, ...matchingZips]));
+          filtered = Array.from(new Set([...filtered, ...matchingZips]));
         }
       }
 
@@ -98,33 +98,28 @@ function App() {
           if (searchText.length < 3) {
             return false;
           }
-          
+
           if (eventName.includes(searchText)) {
             return true;
           }
-          
+
           const searchLength = searchText.length;
           const maxCompare = Math.min(eventName.length, searchLength + 2);
 
-          let prev = Array.from({ length: maxCompare +1}, (_, index) => index);
+          let prev = Array.from({ length: maxCompare + 1 }, (_, index) => index);
 
           for (let i = 1; i <= searchLength; i++) {
             let current = [i];
             for (let j = 1; j <= maxCompare; j++) {
-              const errors = searchText[i - 1] === eventName[j -1] ? 0 : 1;
-              current.push(Math.min(
-                prev[j] + 1,
-                current[j - 1] + 1,
-                prev[j - 1] + errors
-              ));
+              const errors = searchText[i - 1] === eventName[j - 1] ? 0 : 1;
+              current.push(Math.min(prev[j] + 1, current[j - 1] + 1, prev[j - 1] + errors));
             }
             prev = current;
           }
           const totalErrors = Math.min(...prev);
           const allowedErrors = searchText.length <= 4 ? 1 : 2;
 
-          return (totalErrors <= allowedErrors);
-          
+          return totalErrors <= allowedErrors;
         });
       }
     }
@@ -150,9 +145,11 @@ function App() {
 
     if (adaOnly === "true") {
       filtered = filtered.filter((event) => {
-        return String(event.isADAComp).toLowerCase() === "true" || 
-               String(event.is_ada_compliant).toLowerCase() === "true";
-        });
+        return (
+          String(event.isADAComp).toLowerCase() === "true" ||
+          String(event.is_ada_compliant).toLowerCase() === "true"
+        );
+      });
     }
 
     if (viewMode === "favorites") {
@@ -161,15 +158,22 @@ function App() {
 
     //return sortByDate(filtered, sortOrder);
     if (sortOrder === "priceAscending") {
-      return [...filtered].sort((eventA, eventB) => 
-        eventA.ticketPrice - eventB.ticketPrice);
+      return [...filtered].sort((eventA, eventB) => eventA.ticketPrice - eventB.ticketPrice);
     } else if (sortOrder === "priceDescending") {
-        return [...filtered].sort((eventA, eventB) =>
-          eventB.ticketPrice - eventA.ticketPrice);
-      } else {
-        return sortByDate(filtered, sortOrder);
-      }
-    }, [events, searchValue, genre, /*zipCode,*/ priceRange, adaOnly, viewMode, favorites, sortOrder]);
+      return [...filtered].sort((eventA, eventB) => eventB.ticketPrice - eventA.ticketPrice);
+    } else {
+      return sortByDate(filtered, sortOrder);
+    }
+  }, [
+    events,
+    searchValue,
+    genre,
+    /*zipCode,*/ priceRange,
+    adaOnly,
+    viewMode,
+    favorites,
+    sortOrder,
+  ]);
 
   const eventsByDate = useMemo(() => {
     return getCalendarMap(visibleEvents);
@@ -215,7 +219,7 @@ function App() {
                   padding: "0.5rem",
                   cursor: "pointer",
                   fontWeight: "bold",
-                  listStyle: "none"
+                  listStyle: "none",
                 }}
               >
                 <span>Genres {genre.length > 0 && `(${genre.length})`}</span>
@@ -238,13 +242,21 @@ function App() {
                   gap: "6px",
                   maxHeight: "180px",
                   overflowY: "auto",
-                  minWidth: "150px"
+                  minWidth: "150px",
                 }}
               >
                 {genreOptions
                   .filter((g) => g !== "All")
                   .map((gOption) => (
-                    <label key={gOption} style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                    <label
+                      key={gOption}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        cursor: "pointer",
+                      }}
+                    >
                       <input
                         type="checkbox"
                         checked={genre.includes(gOption)}
@@ -252,7 +264,7 @@ function App() {
                         style={{
                           width: "16px",
                           minWidth: "auto",
-                          cursor: "pointer"
+                          cursor: "pointer",
                         }}
                       />
                       <span style={{ color: "#132236" }}>{gOption}</span>
@@ -292,7 +304,7 @@ function App() {
                   padding: "0.5rem",
                   cursor: "pointer",
                   fontWeight: "bold",
-                  listStyle: "none"
+                  listStyle: "none",
                 }}
               >
                 <span>Price {priceRange.length > 0 && `(${priceRange.length})`}</span>
@@ -312,17 +324,17 @@ function App() {
                   display: "flex",
                   flexDirection: "column",
                   gap: "6px",
-                  minWidth: "150px"
+                  minWidth: "150px",
                 }}
               >
                 {[
                   { value: "0-49", label: "$0 - $49" },
                   { value: "50-99", label: "$50 - $99" },
                   { value: "100-199", label: "$100 - $199" },
-                  { value: "geq200", label: "$200+" }
+                  { value: "geq200", label: "$200+" },
                 ].map((pOption) => (
-                  <label 
-                    key={pOption.value} 
+                  <label
+                    key={pOption.value}
                     htmlFor={`price-${pOption.value}`}
                     style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}
                   >
@@ -334,7 +346,7 @@ function App() {
                       style={{
                         width: "16px",
                         minWidth: "auto",
-                        cursor: "pointer"
+                        cursor: "pointer",
                       }}
                     />
                     <span style={{ color: "#132236" }}>{pOption.label}</span>
@@ -358,7 +370,7 @@ function App() {
                   padding: "0.5rem",
                   cursor: "pointer",
                   fontWeight: "bold",
-                  listStyle: "none"
+                  listStyle: "none",
                 }}
               >
                 <span>Accessibility {adaOnly === "true" && "(1)"}</span>
@@ -379,10 +391,13 @@ function App() {
                   display: "flex",
                   flexDirection: "column",
                   gap: "6px",
-                  minWidth: "150px"
+                  minWidth: "150px",
                 }}
               >
-                <label htmlFor="ada-checkbox" style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                <label
+                  htmlFor="ada-checkbox"
+                  style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}
+                >
                   <input
                     id="ada-checkbox"
                     type="checkbox"
@@ -391,7 +406,7 @@ function App() {
                     style={{
                       width: "16px",
                       minWidth: "auto",
-                      cursor: "pointer"
+                      cursor: "pointer",
                     }}
                   />
                   <span style={{ color: "#132236" }}>ADA Compliant</span>
@@ -414,16 +429,18 @@ function App() {
                   padding: "0.5rem",
                   cursor: "pointer",
                   fontWeight: "bold",
-                  listStyle: "none"
+                  listStyle: "none",
                 }}
               >
                 <span>
-                  Sort: {
-                    sortOrder === "soonest" ? "Soonest first" : 
-                    sortOrder === "latest" ? "Latest first" :
-                    sortOrder === "priceAscending" ? "Price: Low to High" :
-                    "Price: High to Low"
-                  }
+                  Sort:{" "}
+                  {sortOrder === "soonest"
+                    ? "Soonest first"
+                    : sortOrder === "latest"
+                      ? "Latest first"
+                      : sortOrder === "priceAscending"
+                        ? "Price: Low to High"
+                        : "Price: High to Low"}
                 </span>
                 <span style={{ fontSize: "0.75rem" }}>▼</span>
               </summary>
@@ -442,14 +459,14 @@ function App() {
                   display: "flex",
                   flexDirection: "column",
                   gap: "2px",
-                  minWidth: "150px"
+                  minWidth: "150px",
                 }}
               >
                 {[
                   { value: "soonest", label: "Soonest first" },
                   { value: "latest", label: "Latest first" },
-                  { value: "priceAscending", label: "Price - Low to High"},
-                  { value: "priceDescending", label: "Price - High to Low"}
+                  { value: "priceAscending", label: "Price - Low to High" },
+                  { value: "priceDescending", label: "Price - High to Low" },
                 ].map((sOption) => {
                   const isActive = sortOrder === sOption.value;
                   return (
@@ -471,7 +488,7 @@ function App() {
                         borderRadius: "4px",
                         cursor: "pointer",
                         fontWeight: isActive ? "bold" : "normal",
-                        width: "100%"
+                        width: "100%",
                       }}
                     >
                       {sOption.label} {isActive && "✓"}
