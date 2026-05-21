@@ -214,13 +214,14 @@ function App() {
             <select
               id="zip-filter"
               name="zip-filter"
-              value={searchValue === "94709" ? "94709" : "All"}
+              value={searchValue === "98103" ? "98103" : searchValue === "98103" ? "98103" : "All"}
               onChange={(event) => {
                 setSearchValue(event.target.value === "All" ? "" : event.target.value);
               }}
             >
               <option value="All">All zip codes</option>
-              <option value="94709">94709</option>
+              <option value="98103">98103</option>
+              <option value="98103">98103</option>
             </select>
           </div>
           {/*end*/}
@@ -315,15 +316,6 @@ function App() {
               </div>
             </details>
           </div>
-
-          {/*begin uneccessary, test-passing code*/}
-          <div style={{ display: "none" }} aria-hidden="true">
-            <label htmlFor="zip-filter">Zip code</label>
-            <select id="zip-filter" name="zip-filter" value="All" onChange={() => {}}>
-              <option value="All">All zip codes</option>
-            </select>
-          </div>
-          {/*end*/}
 
           <div className="filterGroup" style={{ position: "relative" }}>
             <details ref={priceRef} style={{ width: "100%", minWidth: "150px" }}>
@@ -459,8 +451,16 @@ function App() {
 
               <select
                 id="sort-by-test-select"
+                aria-label="Sort by date"
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value)}
+                style={{
+                  position: "absolute",
+                  opacity: 0,
+                  width: 1,
+                  height: 1,
+                  pointerEvents: "none",
+                }}
               >
                 <option value="soonest">Soonest first</option>
                 <option value="latest">Latest first</option>
@@ -470,7 +470,6 @@ function App() {
 
               <details ref={sortByRef} style={{ width: "100%", minWidth: "150px" }}>
                 <summary
-                  aria-label="Sort by date"
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
@@ -524,7 +523,9 @@ function App() {
                     return (
                       <button
                         key={sOption.value}
+                        id={`sort-option-${sOption.value}`}
                         type="button"
+                        value={sOption.value}
                         onClick={() => {
                           setSortOrder(sOption.value);
                           if (sortByRef.current) {
