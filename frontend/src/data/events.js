@@ -8,7 +8,7 @@ export const mockEvents = [
     venue: "Emerald Hall",
     ticketLink: "https://tickets.example.com/northside",
     ticketPrice: 35,
-    zipCode: "98109",
+    zipCode: "98103",
   },
   {
     id: 2,
