@@ -150,50 +150,50 @@ jobs:
           echo "Deployment verification failed" >&2
           exit 1
 
-    vercel-preview:
-      name: Deploy Vercel Preview
-      runs-on: ubuntu-latest
-      needs: test
-      if: github.event_name == 'pull_request'
-      defaults:
-        run:
-          working-directory: frontend
-      env:
-        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
+  vercel-preview:
+    name: Deploy Vercel Preview
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'pull_request'
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-        - name: Setup Node
-          uses: actions/setup-node@v4
-          with:
-            node-version: 20
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-        - name: Install dependencies
-          run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-        - name: Deploy preview to Vercel (if token configured)
-          id: vercel_deploy
-          if: env.VERCEL_TOKEN != ''
-          run: |
-            echo "Deploying preview to Vercel..."
-            npx vercel --token "${{ secrets.VERCEL_TOKEN }}" --confirm --cwd ./frontend | tee vercel_output.txt
-            PREVIEW_URL=$(tail -n1 vercel_output.txt || true)
-            echo "preview_url=$PREVIEW_URL" >> $GITHUB_OUTPUT
+      - name: Deploy preview to Vercel (if token configured)
+        id: vercel_deploy
+        if: env.VERCEL_TOKEN != ''
+        run: |
+          echo "Deploying preview to Vercel..."
+          npx vercel --token "${{ secrets.VERCEL_TOKEN }}" --confirm --cwd ./frontend | tee vercel_output.txt
+          PREVIEW_URL=$(tail -n1 vercel_output.txt || true)
+          echo "preview_url=$PREVIEW_URL" >> $GITHUB_OUTPUT
 
-        - name: Comment PR with preview URL
-          if: steps.vercel_deploy.outputs.preview_url != ''
-          uses: peter-evans/create-or-update-comment@v4
-          with:
-            token: ${{ secrets.GITHUB_TOKEN }}
-            repository: ${{ github.repository }}
-            issue-number: ${{ github.event.pull_request.number }}
-            body: |
-              Vercel preview deployed for this PR:
-              ${{ steps.vercel_deploy.outputs.preview_url }}
+      - name: Comment PR with preview URL
+        if: steps.vercel_deploy.outputs.preview_url != ''
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            Vercel preview deployed for this PR:
+            ${{ steps.vercel_deploy.outputs.preview_url }}
 
-        - name: Preview skipped note
-          if: env.VERCEL_TOKEN == ''
-          run: |
-            echo "VERCEL_TOKEN not configured — skipping preview deploy."
-            echo "To enable automatic preview deploys, add the VERCEL_TOKEN secret in the repository settings and ensure the Vercel project is connected to this repo."
+      - name: Preview skipped note
+        if: env.VERCEL_TOKEN == ''
+        run: |
+          echo "VERCEL_TOKEN not configured — skipping preview deploy."
+          echo "To enable automatic preview deploys, add the VERCEL_TOKEN secret in the repository settings and ensure the Vercel project is connected to this repo."
