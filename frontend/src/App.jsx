@@ -11,6 +11,7 @@ import {
   sortByDate,
 } from "./lib/events";
 import { getFavorites, toggleFavorite } from "./lib/favorites";
+import Select from "react-select";
 
 function App() {
   const { events, loading, error } = useEvents();
@@ -116,18 +117,19 @@ function App() {
 
           <div className="filterGroup">
             <label htmlFor="zip-filter">Zip code</label>
-            <select
-              id="zip-filter"
-              name="zip-filter"
-              value={zipCode}
-              onChange={(event) => setZipCode(event.target.value)}
-            >
-              {zipCodeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option === "All" ? "All zip codes" : option}
-                </option>
-              ))}
-            </select>
+            <Select
+              inputId="zip-filter"
+              isSearchable
+              isClearable
+              placeholder="All zip codes"
+              value={zipCode === "All" ? null : { value: zipCode, label: zipCode }}
+              onChange={(selected) => setZipCode(selected ? selected.value : "All")}
+              options={zipCodeOptions
+                .filter((opt) => opt !== "All")
+                .map((opt) => ({ value: opt, label: opt }))}
+              aria-label="Zip code"
+              classNamePrefix="zip-select"
+            />
           </div>
 
           <div className="filterGroup">

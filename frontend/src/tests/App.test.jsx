@@ -112,35 +112,57 @@ describe("Sprint 1 interface behavior", () => {
     expect(screen.getByRole("region", { name: "Concert calendar section" })).toBeInTheDocument();
   });
 
-  test("zip code dropdown defaults to 'All zip codes'", () => {
+  test("zip code dropdown shows placeholder when nothing is selected", () => {
     render(<App />);
-    const zipSelect = screen.getByLabelText("Zip code");
-    expect(zipSelect).toHaveValue("All");
+    // react-select renders the placeholder as visible text when no value is set
+    expect(screen.getByText("All zip codes")).toBeInTheDocument();
   });
 
   test("selecting a zip code filters the concert list", async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const zipSelect = screen.getByLabelText("Zip code");
-    await user.selectOptions(zipSelect, "98103");
+    // Open the dropdown by clicking the combobox
+    const zipInput = screen.getByLabelText("Zip code");
+    await user.click(zipInput);
+
+    // Click the option (react-select renders options as divs after opening)
+    const option = await screen.findByText("98103");
+    await user.click(option);
 
     expect(screen.getAllByText("Northside Noise Fest").length).toBeGreaterThan(0);
     expect(screen.queryAllByText("Jazz by the Lake").length).toBe(0);
   });
 
-  test("Reset Filters returns zip code dropdown to 'All'", async () => {
+  test("Reset Filters clears the zip code dropdown", async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const zipSelect = screen.getByLabelText("Zip code");
-    await user.selectOptions(zipSelect, "98103");
-    expect(zipSelect).toHaveValue("98103");
+    const zipInput = screen.getByLabelText("Zip code");
+    await user.click(zipInput);
+    const option = await screen.findByText("98103");
+    await user.click(option);
 
     const resetButtons = screen.getAllByRole("button", { name: /reset filters/i });
     await user.click(resetButtons[0]);
 
-    expect(zipSelect).toHaveValue("All");
+    // After reset, the placeholder is visible again
+    expect(screen.getByText("All zip codes")).toBeInTheDocument();
+  });
+
+  test("typing in the zip dropdown narrows visible options", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const zipInput = screen.getByLabelText("Zip code");
+    await user.click(zipInput);
+    await user.type(zipInput, "981");
+
+    // 98103 and 98101 start with 981 — both should be visible
+    expect(await screen.findByText("98103")).toBeInTheDocument();
+    expect(await screen.findByText("98101")).toBeInTheDocument();
+    // 98004 does NOT start with 981, should not appear
+    expect(screen.queryByText("98004")).not.toBeInTheDocument();
   });
 
   test("favorite button is initially unfilled (☆) for all concerts", () => {
