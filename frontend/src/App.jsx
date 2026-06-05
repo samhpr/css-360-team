@@ -100,7 +100,6 @@ function App() {
   };
 
   const availableEvents = useMemo(() => {
-    
     // ADD LATER: will only show upcoming events and hide events that have passed) //
 
     // const tempEvents = Array.isArray(events) ? events : [];
