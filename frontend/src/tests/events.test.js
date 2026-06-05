@@ -41,6 +41,12 @@ describe("event utilities", () => {
     expect(byLeadingChar.map((event) => event.name)).toContain("Jazz by the Lake");
   });
 
+  test("search tolerates small misspellings", () => {
+    const typoMatch = searchEvents(mockEvents, "jasz");
+
+    expect(typoMatch.map((event) => event.name)).toContain("Jazz by the Lake");
+  });
+
   test("filters events by selected genre", () => {
     const jazzOnly = filterByGenre(mockEvents, "Jazz");
 
@@ -64,6 +70,12 @@ describe("event utilities", () => {
     const result = filterByZipCode(mockEvents, "98103");
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe("Northside Noise Fest");
+  });
+
+  test("filterByZipCode tolerates a near-match zip code", () => {
+    const result = filterByZipCode(mockEvents, "98104");
+    expect(result.length).toBeGreaterThan(0);
+    expect(result.map((event) => event.name)).toContain("Northside Noise Fest");
   });
 
   test("filterByZipCode returns empty array when no events match", () => {
