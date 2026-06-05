@@ -54,7 +54,10 @@ function matchesFuzzyText(candidate, query) {
     return false;
   }
 
-  if (normalizedCandidate.includes(normalizedQuery) || normalizedQuery.includes(normalizedCandidate)) {
+  if (
+    normalizedCandidate.includes(normalizedQuery) ||
+    normalizedQuery.includes(normalizedCandidate)
+  ) {
     return true;
   }
 

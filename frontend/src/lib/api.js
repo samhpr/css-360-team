@@ -14,7 +14,9 @@ export async function fetchEvents() {
   if (response.error && /zip_code/i.test(String(response.error.message))) {
     response = await supabase
       .from("events")
-      .select("id, name, genre, date, location, venue, ticket_link, ticket_price, is_ada_compliant");
+      .select(
+        "id, name, genre, date, location, venue, ticket_link, ticket_price, is_ada_compliant",
+      );
   }
 
   const { data, error } = response;
