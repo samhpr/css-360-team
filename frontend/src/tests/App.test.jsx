@@ -124,7 +124,7 @@ describe("Sprint 1 interface behavior", () => {
 
   test("zip code input starts empty", () => {
     render(<App />);
-    const zipInput = screen.getByLabelText("Zip code");
+    const zipInput = screen.getByRole("combobox", { name: "Zip code" });
     expect(zipInput).toHaveValue("");
   });
 
@@ -132,7 +132,7 @@ describe("Sprint 1 interface behavior", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const zipInput = screen.getByLabelText("Zip code");
+    const zipInput = screen.getByRole("combobox", { name: "Zip code" });
     await user.type(zipInput, "98103");
 
     expect(screen.getAllByText("Northside Noise Fest").length).toBeGreaterThan(0);
@@ -143,7 +143,7 @@ describe("Sprint 1 interface behavior", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const zipInput = screen.getByLabelText("Zip code");
+    const zipInput = screen.getByRole("combobox", { name: "Zip code" });
     await user.type(zipInput, "98104");
 
     expect(screen.getAllByText("Northside Noise Fest").length).toBeGreaterThan(0);
@@ -153,7 +153,7 @@ describe("Sprint 1 interface behavior", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const zipInput = screen.getByLabelText("Zip code");
+    const zipInput = screen.getByRole("combobox", { name: "Zip code" });
     await user.type(zipInput, "98103");
     expect(zipInput).toHaveValue("98103");
 
