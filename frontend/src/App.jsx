@@ -23,6 +23,9 @@ function App() {
   const [favorites, setFavorites] = useState(() => getFavorites());
   const [viewMode, setViewMode] = useState("all");
 
+  const [displayCount, setDisplayCount] = useState(10);
+  const [mult, setMult] = useState(1);
+
   const genreRef = useRef(null);
   const zipRef = useRef(null);
   const adaRef = useRef(null);
@@ -54,6 +57,10 @@ function App() {
     };
   }, [genreRef, zipRef, adaRef, priceRef, sortByRef]);
 
+  useEffect(() => {
+    setMult(1);
+  }, [searchValue]);
+
   const genreOptions = useMemo(() => getGenreOptions(events), [events]);
   const zipCodeOptions = useMemo(() => getZipCodeOptions(events), [events]);
 
@@ -73,6 +80,8 @@ function App() {
     setPriceRange([]);
     setadaOnly("all");
     setSortOrder("soonest");
+    setDisplayCount(10);
+    setMult(1);
   };
 
   const handleToggleFavorite = (eventId) => {
@@ -90,7 +99,16 @@ function App() {
     }
   };
 
-  const visibleEvents = useMemo(() => {
+  const availableEvents = useMemo(() => {
+    
+    // ADD LATER: will only show upcoming events and hide events that have passed) //
+
+    // const tempEvents = Array.isArray(events) ? events : [];
+    // const today = new Date().toISOString().split('T')[0];
+    // const currentEvents = tempEvents.filter(event => event && event.date && event.date >= today);
+
+    // let filtered = searchEvents(currentEvents, searchValue);
+
     let filtered = searchEvents(events, searchValue);
 
     if (searchValue.trim() !== "") {
@@ -180,9 +198,20 @@ function App() {
     }
   }, [events, searchValue, genre, zipCode, priceRange, adaOnly, viewMode, favorites, sortOrder]);
 
+  const currentCount = displayCount * mult;
+
+  const visibleEvents = useMemo(() => {
+    return availableEvents.slice(0, currentCount);
+  }, [availableEvents, currentCount]);
+
   const eventsByDate = useMemo(() => {
     return getCalendarMap(visibleEvents);
   }, [visibleEvents]);
+
+  const changeDisplayCount = (event) => {
+    setDisplayCount(Number(event.target.value));
+    setMult(1);
+  };
 
   return (
     <div className="app-shell">
@@ -200,7 +229,7 @@ function App() {
             type="text"
             value={searchValue}
             onChange={(event) => setSearchValue(event.target.value)}
-            placeholder="Search name, city, venue, or genre"
+            placeholder="Search name, city, venue, zip code, or genre"
           />
           {searchValue && (
             <button type="button" onClick={() => setSearchValue("")}>
@@ -614,7 +643,50 @@ function App() {
 
       <main>
         <section aria-label="Upcoming concerts section">
-          <h2>Upcoming Concerts</h2>
+          <div
+            style={{ display: "flex", alignItems: "center", width: "100%", marginBottom: "1rem" }}
+          >
+            <h2 style={{ margin: 0 }}>Upcoming Concerts</h2>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                marginLeft: "auto",
+                fontSize: "0.85rem",
+                gap: "0.4rem",
+              }}
+            >
+              <span style={{ color: "#005eb8" }}>Show groups of:</span>
+              {[10, 25, 50].map((num, idx) => {
+                const isActive = displayCount === num;
+                return (
+                  <React.Fragment key={num}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDisplayCount(num);
+                        setMult(1);
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                        margin: 0,
+                        font: "inherit",
+                        cursor: "pointer",
+                        color: "#005eb8",
+                        fontWeight: isActive ? "bold" : "normal",
+                        textDecoration: "none",
+                      }}
+                    >
+                      {num}
+                    </button>
+                    {idx < 2 && <span style={{ color: "#9db5ce", margin: "0 0.1rem" }}>|</span>}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
 
           {loading && <p>Loading concerts…</p>}
           {error && <p role="alert">Could not load concerts. Is the API running?</p>}
@@ -682,6 +754,33 @@ function App() {
               );
             })}
           </ul>
+          {!loading &&
+            !error &&
+            availableEvents.length > visibleEvents.length &&
+            (() => {
+              const remainingCount = availableEvents.length - visibleEvents.length;
+              const nextAmountToShow = Math.min(displayCount, remainingCount);
+
+              return (
+                <div style={{ display: "flex", justifyContent: "center", margin: "1.5rem 0" }}>
+                  <button
+                    type="button"
+                    onClick={() => setMult((prev) => prev + 1)}
+                    style={{
+                      padding: "0.6rem 1.2rem",
+                      background: "#005eb8",
+                      color: "#ffffff",
+                      border: "none",
+                      borderRadius: "6px",
+                      fontWeight: "normal",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Show {nextAmountToShow} more {nextAmountToShow === 1 ? "result" : "results"}
+                  </button>
+                </div>
+              );
+            })()}
         </section>
         <EventCalendar eventsByDate={eventsByDate} />
       </main>
