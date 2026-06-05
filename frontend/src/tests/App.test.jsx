@@ -103,6 +103,16 @@ describe("Sprint 1 interface behavior", () => {
     expect(screen.queryAllByText("Jazz by the Lake").length).toBe(0);
   });
 
+  test("search tolerates small typos", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const searchInput = screen.getByLabelText("Search concerts");
+    await user.type(searchInput, "jasz");
+
+    expect(screen.getAllByText("Jazz by the Lake").length).toBeGreaterThan(0);
+  });
+
   test("base accessibility affordances are present", () => {
     render(<App />);
 
@@ -112,35 +122,45 @@ describe("Sprint 1 interface behavior", () => {
     expect(screen.getByRole("region", { name: "Concert calendar section" })).toBeInTheDocument();
   });
 
-  test("zip code dropdown defaults to 'All zip codes'", () => {
+  test("zip code input starts empty", () => {
     render(<App />);
-    const zipSelect = screen.getByLabelText("Zip code");
-    expect(zipSelect).toHaveValue("All");
+    const zipInput = screen.getByLabelText("Zip code");
+    expect(zipInput).toHaveValue("");
   });
 
-  test("selecting a zip code filters the concert list", async () => {
+  test("typing a zip code filters the concert list", async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const zipSelect = screen.getByLabelText("Zip code");
-    await user.selectOptions(zipSelect, "98103");
+    const zipInput = screen.getByLabelText("Zip code");
+    await user.type(zipInput, "98103");
 
     expect(screen.getAllByText("Northside Noise Fest").length).toBeGreaterThan(0);
     expect(screen.queryAllByText("Jazz by the Lake").length).toBe(0);
   });
 
-  test("Reset Filters returns zip code dropdown to 'All'", async () => {
+  test("typing a near-match zip code still filters the concert list", async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const zipSelect = screen.getByLabelText("Zip code");
-    await user.selectOptions(zipSelect, "98103");
-    expect(zipSelect).toHaveValue("98103");
+    const zipInput = screen.getByLabelText("Zip code");
+    await user.type(zipInput, "98104");
+
+    expect(screen.getAllByText("Northside Noise Fest").length).toBeGreaterThan(0);
+  });
+
+  test("Reset Filters clears the zip code input", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const zipInput = screen.getByLabelText("Zip code");
+    await user.type(zipInput, "98103");
+    expect(zipInput).toHaveValue("98103");
 
     const resetButtons = screen.getAllByRole("button", { name: /reset filters/i });
     await user.click(resetButtons[0]);
 
-    expect(zipSelect).toHaveValue("All");
+    expect(zipInput).toHaveValue("");
   });
 
   test("favorite button is initially unfilled (☆) for all concerts", () => {

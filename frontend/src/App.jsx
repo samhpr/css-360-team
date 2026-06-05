@@ -20,7 +20,7 @@ function App() {
   const [priceRange, setPriceRange] = useState("all");
   const [adaOnly, setadaOnly] = useState("all");
   const [sortOrder, setSortOrder] = useState("soonest");
-  const [zipCode, setZipCode] = useState("All");
+  const [zipCode, setZipCode] = useState("");
   const [favorites, setFavorites] = useState(() => getFavorites());
   const [viewMode, setViewMode] = useState("all"); // "all" or "favorites"
 
@@ -33,7 +33,7 @@ function App() {
     setPriceRange("all");
     setadaOnly("all");
     setSortOrder("soonest");
-    setZipCode("All");
+    setZipCode("");
   };
 
   const handleToggleFavorite = (eventId) => {
@@ -116,18 +116,22 @@ function App() {
 
           <div className="filterGroup">
             <label htmlFor="zip-filter">Zip code</label>
-            <select
+            <input
               id="zip-filter"
               name="zip-filter"
+              type="text"
+              role="combobox"
+              aria-autocomplete="list"
+              list="zip-code-options"
               value={zipCode}
               onChange={(event) => setZipCode(event.target.value)}
-            >
+              placeholder="Search zip codes"
+            />
+            <datalist id="zip-code-options">
               {zipCodeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option === "All" ? "All zip codes" : option}
-                </option>
+                <option key={option} value={option} />
               ))}
-            </select>
+            </datalist>
           </div>
 
           <div className="filterGroup">
