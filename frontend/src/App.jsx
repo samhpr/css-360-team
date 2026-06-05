@@ -1,9 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import EventCalendar from "./components/EventCalendar";
 import { useEvents } from "./hooks/useEvents";
 import {
-  filterByGenre,
-  filterByZipCode,
   getCalendarMap,
   getGenreOptions,
   getZipCodeOptions,
@@ -13,27 +11,68 @@ import {
 import { getFavorites, toggleFavorite } from "./lib/favorites";
 
 function App() {
-  const { events, loading, error } = useEvents();
+  const { events, loading, error } = useEvents({});
 
   const [searchValue, setSearchValue] = useState("");
-  const [genre, setGenre] = useState("All");
-  const [priceRange, setPriceRange] = useState("all");
+  const [genre, setGenre] = useState([]);
+  const [zipCode, setZipCode] = useState([]);
+  const [zipSearchText, setZipSearchText] = useState("");
+  const [priceRange, setPriceRange] = useState([]);
   const [adaOnly, setadaOnly] = useState("all");
   const [sortOrder, setSortOrder] = useState("soonest");
-  const [zipCode, setZipCode] = useState("");
   const [favorites, setFavorites] = useState(() => getFavorites());
-  const [viewMode, setViewMode] = useState("all"); // "all" or "favorites"
+  const [viewMode, setViewMode] = useState("all");
+
+  const genreRef = useRef(null);
+  const zipRef = useRef(null);
+  const adaRef = useRef(null);
+  const priceRef = useRef(null);
+  const sortByRef = useRef(null);
+
+  useEffect(() => {
+    const exitDropdown = (event) => {
+      if (genreRef.current && !genreRef.current.contains(event.target)) {
+        genreRef.current.removeAttribute("open");
+      }
+      if (zipRef.current && !zipRef.current.contains(event.target)) {
+        zipRef.current.removeAttribute("open");
+        setZipSearchText("");
+      }
+      if (adaRef.current && !adaRef.current.contains(event.target)) {
+        adaRef.current.removeAttribute("open");
+      }
+      if (priceRef.current && !priceRef.current.contains(event.target)) {
+        priceRef.current.removeAttribute("open");
+      }
+      if (sortByRef.current && !sortByRef.current.contains(event.target)) {
+        sortByRef.current.removeAttribute("open");
+      }
+    };
+    document.addEventListener("mousedown", exitDropdown);
+    return () => {
+      document.removeEventListener("mousedown", exitDropdown);
+    };
+  }, [genreRef, zipRef, adaRef, priceRef, sortByRef]);
 
   const genreOptions = useMemo(() => getGenreOptions(events), [events]);
   const zipCodeOptions = useMemo(() => getZipCodeOptions(events), [events]);
 
+  const filteredZipOptions = useMemo(() => {
+    return zipCodeOptions
+      .filter((z) => z !== "All")
+      .filter((zOption) =>
+        String(zOption).toLowerCase().includes(zipSearchText.toLowerCase().trim()),
+      );
+  }, [zipCodeOptions, zipSearchText]);
+
   const resetFilters = () => {
     setSearchValue("");
-    setGenre("All");
-    setPriceRange("all");
+    setGenre([]);
+    setZipCode([]);
+    setZipSearchText("");
+    setPriceRange([]);
     setadaOnly("all");
     setSortOrder("soonest");
-    setZipCode("");
   };
 
   const handleToggleFavorite = (eventId) => {
@@ -41,36 +80,109 @@ function App() {
     setFavorites(updated);
   };
 
+  const toggleCheckBox = (value, currentArr, setArr) => {
+    if (currentArr.includes(value)) {
+      const updatedArr = currentArr.filter((val) => val !== value);
+      setArr(updatedArr);
+    } else {
+      const updatedArr = [...currentArr, value];
+      setArr(updatedArr);
+    }
+  };
+
   const visibleEvents = useMemo(() => {
-    const searched = searchEvents(events, searchValue);
-    const byGenre = filterByGenre(searched, genre);
-    const byZipCode = filterByZipCode(byGenre, zipCode);
+    let filtered = searchEvents(events, searchValue);
 
-    const byPrice = (() => {
-      if (priceRange === "all") return byZipCode;
-      return byZipCode.filter((event) => {
-        if (priceRange === "0-49") return event.ticketPrice < 50;
-        if (priceRange === "50-99") return event.ticketPrice >= 50 && event.ticketPrice < 100;
-        if (priceRange === "100-199") return event.ticketPrice >= 100 && event.ticketPrice < 200;
-        if (priceRange === "geq200") return event.ticketPrice >= 200;
-        return true;
+    if (searchValue.trim() !== "") {
+      const searchText = searchValue.toLowerCase().trim();
+      const matchingZips = events.filter((event) => {
+        return event.zipCode && String(event.zipCode).toLowerCase().includes(searchText);
       });
-    })();
+      if (matchingZips.length > 0) {
+        if (filtered.length === 0) {
+          filtered = matchingZips;
+        } else {
+          filtered = Array.from(new Set([...filtered, ...matchingZips]));
+        }
+      }
 
-    const byADAComp = (() => {
-      if (adaOnly === "all") return byPrice;
-      return byPrice.filter((event) => event.isADAComp === true);
-    })();
+      if (filtered.length === 0) {
+        filtered = events.filter((event) => {
+          const eventName = (event.name || "").toLowerCase();
 
-    const byFavorites =
-      viewMode === "favorites"
-        ? byADAComp.filter((event) => favorites.includes(event.id))
-        : byADAComp;
+          if (searchText.length < 3) {
+            return false;
+          }
 
-    return sortByDate(byFavorites, sortOrder);
-  }, [events, searchValue, genre, priceRange, adaOnly, sortOrder, zipCode, viewMode, favorites]);
+          if (eventName.includes(searchText)) {
+            return true;
+          }
 
-  const eventsByDate = useMemo(() => getCalendarMap(visibleEvents), [visibleEvents]);
+          const searchLength = searchText.length;
+          const maxCompare = Math.min(eventName.length, searchLength + 2);
+
+          let prev = Array.from({ length: maxCompare + 1 }, (_, index) => index);
+
+          for (let i = 1; i <= searchLength; i++) {
+            let current = [i];
+            for (let j = 1; j <= maxCompare; j++) {
+              const errors = searchText[i - 1] === eventName[j - 1] ? 0 : 1;
+              current.push(Math.min(prev[j] + 1, current[j - 1] + 1, prev[j - 1] + errors));
+            }
+            prev = current;
+          }
+          const totalErrors = Math.min(...prev);
+          const allowedErrors = searchText.length <= 4 ? 1 : 2;
+
+          return totalErrors <= allowedErrors;
+        });
+      }
+    }
+
+    if (genre.length > 0) {
+      filtered = filtered.filter((event) => genre.includes(event.genre));
+    }
+
+    if (zipCode.length > 0) {
+      filtered = filtered.filter((event) => zipCode.includes(event.zipCode));
+    }
+
+    if (priceRange.length > 0) {
+      filtered = filtered.filter((event) => {
+        return (
+          (priceRange.includes("0-49") && event.ticketPrice < 50) ||
+          (priceRange.includes("50-99") && event.ticketPrice >= 50 && event.ticketPrice < 100) ||
+          (priceRange.includes("100-199") && event.ticketPrice >= 100 && event.ticketPrice < 200) ||
+          (priceRange.includes("geq200") && event.ticketPrice >= 200)
+        );
+      });
+    }
+
+    if (adaOnly === "true") {
+      filtered = filtered.filter((event) => {
+        return (
+          String(event.isADAComp).toLowerCase() === "true" ||
+          String(event.is_ada_compliant).toLowerCase() === "true"
+        );
+      });
+    }
+
+    if (viewMode === "favorites") {
+      filtered = filtered.filter((event) => favorites.includes(event.id));
+    }
+
+    if (sortOrder === "priceAscending") {
+      return [...filtered].sort((eventA, eventB) => eventA.ticketPrice - eventB.ticketPrice);
+    } else if (sortOrder === "priceDescending") {
+      return [...filtered].sort((eventA, eventB) => eventB.ticketPrice - eventA.ticketPrice);
+    } else {
+      return sortByDate(filtered, sortOrder);
+    }
+  }, [events, searchValue, genre, zipCode, priceRange, adaOnly, viewMode, favorites, sortOrder]);
+
+  const eventsByDate = useMemo(() => {
+    return getCalendarMap(visibleEvents);
+  }, [visibleEvents]);
 
   return (
     <div className="app-shell">
@@ -88,7 +200,7 @@ function App() {
             type="text"
             value={searchValue}
             onChange={(event) => setSearchValue(event.target.value)}
-            placeholder="Search name, city, venue, genre"
+            placeholder="Search name, city, venue, or genre"
           />
           {searchValue && (
             <button type="button" onClick={() => setSearchValue("")}>
@@ -98,96 +210,385 @@ function App() {
         </div>
 
         <div className="filterRow">
-          <div className="filterGroup">
-            <label htmlFor="genre-filter">Genre</label>
-            <select
-              id="genre-filter"
-              name="genre-filter"
-              value={genre}
-              onChange={(event) => setGenre(event.target.value)}
-            >
-              {genreOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
+          <div className="filterGroup" style={{ position: "relative", minWidth: "150px" }}>
+            <details ref={genreRef} style={{ width: "100%" }}>
+              <summary
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  background: "#ffffff",
+                  color: "#132236",
+                  border: "1px solid #9db5ce",
+                  borderRadius: "6px",
+                  padding: "0.5rem",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                  listStyle: "none",
+                }}
+              >
+                <span>Genres {genre.length > 0 && `(${genre.length})`}</span>
+                <span style={{ fontSize: "0.75rem" }}>▼</span>
+              </summary>
 
-          <div className="filterGroup">
-            <label htmlFor="zip-filter">Zip code</label>
-            <input
-              id="zip-filter"
-              name="zip-filter"
-              type="text"
-              role="combobox"
-              aria-autocomplete="list"
-              list="zip-code-options"
-              value={zipCode}
-              onChange={(event) => setZipCode(event.target.value)}
-              placeholder="Search zip codes"
-            />
-            <datalist id="zip-code-options">
-              {zipCodeOptions.map((option) => (
-                <option key={option} value={option} />
-              ))}
-            </datalist>
-          </div>
-
-          <div className="filterGroup">
-            <label htmlFor="price-filter">Price</label>
-            <select
-              id="price-filter"
-              name="price-filter"
-              value={priceRange}
-              onChange={(event) => setPriceRange(event.target.value)}
-            >
-              <option value="all"> Any </option>
-              <option value="0-49"> $0 - $49 </option>
-              <option value="50-99"> $50 - 99 </option>
-              <option value="100-199"> $100 - $199 </option>
-              <option value="geq200"> $200+ </option>
-            </select>
-          </div>
-
-          <div className="filterGroup">
-            <label htmlFor="ada-filter">ADA Compliance</label>
-            <select
-              id="ada-filter"
-              name="ada-filter"
-              value={adaOnly}
-              onChange={(event) => setadaOnly(event.target.value)}
-            >
-              <option value="all"> All </option>
-              <option value="true"> ADA Compliant </option>
-            </select>
-          </div>
-
-          <div className="filterGroup">
-            <label htmlFor="sort-filter">Sort by date</label>
-            <select
-              id="sort-filter"
-              name="sort-filter"
-              value={sortOrder}
-              onChange={(event) => setSortOrder(event.target.value)}
-            >
-              <option value="soonest">Soonest first</option>
-              <option value="latest">Latest first</option>
-            </select>
+              <div
+                style={{
+                  position: "absolute",
+                  top: "38px",
+                  left: 0,
+                  zIndex: 10,
+                  background: "#ffffff",
+                  border: "1px solid #9db5ce",
+                  borderRadius: "6px",
+                  boxShadow: "0px 4px 8px rgba(0,0,0,0.1)",
+                  padding: "8px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px",
+                  maxHeight: "180px",
+                  overflowY: "auto",
+                  width: "100%",
+                  boxSizing: "border-box",
+                }}
+              >
+                {genreOptions
+                  .filter((g) => g !== "All")
+                  .map((gOption) => (
+                    <label
+                      key={gOption}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={genre.includes(gOption)}
+                        onChange={() => toggleCheckBox(gOption, genre, setGenre)}
+                        style={{ width: "16px", minWidth: "auto", cursor: "pointer" }}
+                      />
+                      <span style={{ color: "#132236" }}>{gOption}</span>
+                    </label>
+                  ))}
+              </div>
+            </details>
           </div>
 
           <div
             className="filterGroup"
-            style={{ flex: "none", minWidth: "auto", justifyContent: "flex-end" }}
+            style={{ position: "relative", minWidth: "150px", width: "150px" }}
           >
-            <button
-              type="button"
-              className="link-button"
-              onClick={resetFilters}
-              style={{ paddingBottom: "8px" }}
-            >
-              Reset Filters
-            </button>
+            <details ref={zipRef} style={{ width: "100%" }}>
+              <summary
+                aria-label="Zip code"
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  background: "#ffffff",
+                  color: "#132236",
+                  border: "1px solid #9db5ce",
+                  borderRadius: "6px",
+                  padding: "0.5rem",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                  listStyle: "none",
+                  width: "100%",
+                  boxSizing: "border-box",
+                }}
+              >
+                <span>Zip Codes {zipCode.length > 0 && `(${zipCode.length})`}</span>
+                <span style={{ fontSize: "0.75rem" }}>▼</span>
+              </summary>
+
+              <div
+                ref={(el) => {
+                  if (el) {
+                    el.style.setProperty("width", "165px", "important");
+                    el.style.setProperty("max-width", "165px", "important");
+                  }
+                }}
+                style={{
+                  position: "absolute",
+                  top: "38px",
+                  left: 0,
+                  zIndex: 10,
+                  background: "#ffffff",
+                  border: "1px solid #9db5ce",
+                  borderRadius: "6px",
+                  boxShadow: "0px 4px 8px rgba(0,0,0,0.1)",
+                  padding: "8px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px",
+                  maxHeight: "220px",
+                  overflowY: "auto",
+                  boxSizing: "border-box",
+                }}
+              >
+                <input
+                  ref={(el) => {
+                    if (el) {
+                      el.style.setProperty("width", "150px", "important");
+                      el.style.setProperty("max-width", "150px", "important");
+                      el.style.setProperty("min-width", "150px", "important");
+                    }
+                  }}
+                  type="text"
+                  placeholder="Type to filter..."
+                  value={zipSearchText}
+                  onChange={(e) => setZipSearchText(e.target.value)}
+                  style={{
+                    padding: "4px 6px",
+                    border: "1px solid #9db5ce",
+                    borderRadius: "4px",
+                    fontSize: "0.85rem",
+                    marginBottom: "4px",
+                    boxSizing: "border-box",
+                  }}
+                />
+
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "6px",
+                    overflowY: "auto",
+                  }}
+                >
+                  {filteredZipOptions.map((zOption) => (
+                    <label
+                      key={zOption}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={zipCode.includes(zOption)}
+                        onChange={() => toggleCheckBox(zOption, zipCode, setZipCode)}
+                        style={{ width: "16px", minWidth: "auto", cursor: "pointer" }}
+                      />
+                      <span style={{ color: "#132236", fontSize: "0.9rem" }}>{zOption}</span>
+                    </label>
+                  ))}
+                  {filteredZipOptions.length === 0 && (
+                    <span style={{ color: "#7a8c9e", fontSize: "0.85rem", padding: "4px" }}>
+                      No zips found
+                    </span>
+                  )}
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <div className="filterGroup" style={{ position: "relative", minWidth: "150px" }}>
+            <details ref={priceRef} style={{ width: "100%" }}>
+              <summary
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  background: "#ffffff",
+                  color: "#132236",
+                  border: "1px solid #9db5ce",
+                  borderRadius: "6px",
+                  padding: "0.5rem",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                  listStyle: "none",
+                }}
+              >
+                <span>Price {priceRange.length > 0 && `(${priceRange.length})`}</span>
+                <span style={{ fontSize: "0.75rem" }}>▼</span>
+              </summary>
+              <div
+                style={{
+                  position: "absolute",
+                  top: "38px",
+                  left: 0,
+                  zIndex: 10,
+                  background: "#ffffff",
+                  border: "1px solid #9db5ce",
+                  borderRadius: "6px",
+                  boxShadow: "0px 4px 8px rgba(0,0,0,0.1)",
+                  padding: "8px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px",
+                  width: "100%",
+                  boxSizing: "border-box",
+                }}
+              >
+                {[
+                  { value: "0-49", label: "$0 - $49" },
+                  { value: "50-99", label: "$50 - $99" },
+                  { value: "100-199", label: "$100 - $199" },
+                  { value: "geq200", label: "$200+" },
+                ].map((pOption) => (
+                  <label
+                    key={pOption.value}
+                    htmlFor={`price-${pOption.value}`}
+                    style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}
+                  >
+                    <input
+                      id={`price-${pOption.value}`}
+                      type="checkbox"
+                      checked={priceRange.includes(pOption.value)}
+                      onChange={() => toggleCheckBox(pOption.value, priceRange, setPriceRange)}
+                      style={{ width: "16px", minWidth: "auto", cursor: "pointer" }}
+                    />
+                    <span style={{ color: "#132236" }}>{pOption.label}</span>
+                  </label>
+                ))}
+              </div>
+            </details>
+          </div>
+
+          <div className="filterGroup" style={{ position: "relative", minWidth: "150px" }}>
+            <details ref={adaRef} style={{ width: "100%" }}>
+              <summary
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  background: "#ffffff",
+                  color: "#132236",
+                  border: "1px solid #9db5ce",
+                  borderRadius: "6px",
+                  padding: "0.5rem",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                  listStyle: "none",
+                }}
+              >
+                <span>Accessibility {adaOnly === "true" && "(1)"}</span>
+                <span style={{ fontSize: "0.75rem" }}>▼</span>
+              </summary>
+
+              <div
+                style={{
+                  position: "absolute",
+                  top: "38px",
+                  left: 0,
+                  zIndex: 10,
+                  background: "#ffffff",
+                  border: "1px solid #9db5ce",
+                  borderRadius: "6px",
+                  boxShadow: "0px 4px 8px rgba(0,0,0,0.1)",
+                  padding: "8px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px",
+                  width: "100%",
+                  boxSizing: "border-box",
+                }}
+              >
+                <label
+                  htmlFor="ada-checkbox"
+                  style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}
+                >
+                  <input
+                    id="ada-checkbox"
+                    type="checkbox"
+                    checked={adaOnly === "true"}
+                    onChange={(e) => setadaOnly(e.target.checked ? "true" : "all")}
+                    style={{ width: "16px", minWidth: "auto", cursor: "pointer" }}
+                  />
+                  <span style={{ color: "#132236" }}>ADA Compliant</span>
+                </label>
+              </div>
+            </details>
+          </div>
+
+          <div className="filterGroup" style={{ position: "relative", minWidth: "150px" }}>
+            <details ref={sortByRef} style={{ width: "100%" }}>
+              <summary
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  background: "#ffffff",
+                  color: "#132236",
+                  border: "1px solid #9db5ce",
+                  borderRadius: "6px",
+                  padding: "0.5rem",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                  listStyle: "none",
+                }}
+              >
+                <span>
+                  Sort:{" "}
+                  {sortOrder === "soonest"
+                    ? "Soonest first"
+                    : sortOrder === "latest"
+                      ? "Latest first"
+                      : sortOrder === "priceAscending"
+                        ? "Price: Low to High"
+                        : "Price: High to Low"}
+                </span>
+                <span style={{ fontSize: "0.75rem" }}>▼</span>
+              </summary>
+
+              <div
+                style={{
+                  position: "absolute",
+                  top: "38px",
+                  left: 0,
+                  zIndex: 10,
+                  background: "#ffffff",
+                  border: "1px solid #9db5ce",
+                  borderRadius: "6px",
+                  boxShadow: "0px 4px 8px rgba(0,0,0,0.1)",
+                  padding: "4px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "2px",
+                  width: "100%",
+                  boxSizing: "border-box",
+                }}
+              >
+                {[
+                  { value: "soonest", label: "Soonest first" },
+                  { value: "latest", label: "Latest first" },
+                  { value: "priceAscending", label: "Price - Low to High" },
+                  { value: "priceDescending", label: "Price - High to Low" },
+                ].map((sOption) => {
+                  const isActive = sortOrder === sOption.value;
+                  return (
+                    <button
+                      key={sOption.value}
+                      type="button"
+                      onClick={() => {
+                        setSortOrder(sOption.value);
+                        if (sortByRef.current) {
+                          sortByRef.current.removeAttribute("open");
+                        }
+                      }}
+                      style={{
+                        textAlign: "left",
+                        padding: "6px 8px",
+                        background: isActive ? "#eef5fc" : "transparent",
+                        color: "#132236",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontWeight: isActive ? "bold" : "normal",
+                        width: "100%",
+                      }}
+                    >
+                      {sOption.label} {isActive && "✓"}
+                    </button>
+                  );
+                })}
+              </div>
+            </details>
           </div>
         </div>
       </section>
@@ -236,7 +637,7 @@ function App() {
                 <p>
                   No concerts match the selected filters.{" "}
                   <button type="button" className="link-button" onClick={resetFilters}>
-                    Reset Filters.
+                    Reset Filters
                   </button>
                 </p>
               </div>
@@ -265,7 +666,8 @@ function App() {
                   </p>
                   <p>
                     {event.location} | {event.venue}
-                    {event.isADAComp && (
+                    {(String(event.isADAComp).toLowerCase() === "true" ||
+                      String(event.is_ada_compliant).toLowerCase() === "true") && (
                       <span
                         title="ADA Compliant"
                         aria-label="ADA Compliant Venue"
