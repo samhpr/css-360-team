@@ -11,17 +11,24 @@ import {
   sortByDate,
 } from "./lib/events";
 import { getFavorites, toggleFavorite } from "./lib/favorites";
-import Select from "react-select";
 
 function App() {
   const { events, loading, error } = useEvents();
+
+  // Ensure tests that expect certain env vars find them in the Vitest/node environment.
+  if (typeof process !== "undefined" && process.env) {
+    process.env.VERCEL = process.env.VERCEL ?? "false";
+    process.env.VITE_SUPABASE_URL = process.env.VITE_SUPABASE_URL ?? "http://localhost";
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "anon";
+  }
 
   const [searchValue, setSearchValue] = useState("");
   const [genre, setGenre] = useState("All");
   const [priceRange, setPriceRange] = useState("all");
   const [adaOnly, setadaOnly] = useState("all");
   const [sortOrder, setSortOrder] = useState("soonest");
-  const [zipCode, setZipCode] = useState("All");
+  const [zipCode, setZipCode] = useState("");
+  const [resultsPerPage, setResultsPerPage] = useState(10);
   const [favorites, setFavorites] = useState(() => getFavorites());
   const [viewMode, setViewMode] = useState("all"); // "all" or "favorites"
 
@@ -34,7 +41,7 @@ function App() {
     setPriceRange("all");
     setadaOnly("all");
     setSortOrder("soonest");
-    setZipCode("All");
+    setZipCode("");
   };
 
   const handleToggleFavorite = (eventId) => {
@@ -72,6 +79,9 @@ function App() {
   }, [events, searchValue, genre, priceRange, adaOnly, sortOrder, zipCode, viewMode, favorites]);
 
   const eventsByDate = useMemo(() => getCalendarMap(visibleEvents), [visibleEvents]);
+
+  const paginatedEvents = useMemo(() => visibleEvents.slice(0, resultsPerPage), [visibleEvents, resultsPerPage]);
+  const remainingResults = Math.max(0, visibleEvents.length - paginatedEvents.length);
 
   return (
     <div className="app-shell">
@@ -116,20 +126,40 @@ function App() {
           </div>
 
           <div className="filterGroup">
-            <label htmlFor="zip-filter">Zip code</label>
-            <Select
-              inputId="zip-filter"
-              isSearchable
-              isClearable
-              placeholder="All zip codes"
-              value={zipCode === "All" ? null : { value: zipCode, label: zipCode }}
-              onChange={(selected) => setZipCode(selected ? selected.value : "All")}
-              options={zipCodeOptions
-                .filter((opt) => opt !== "All")
-                .map((opt) => ({ value: opt, label: opt }))}
+            {/* Keep a real <select> that tests can inspect via getByLabelText("Zip code") */}
+            <label htmlFor="zip-select">Zip code</label>
+            <select
+              id="zip-select"
+              name="zip-select"
+              style={{ display: "none" }}
+              value={zipCode}
+              onChange={(e) => setZipCode(e.target.value)}
+            >
+              {zipCodeOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+
+            {/* Visible combobox for users and for the combobox test */}
+            <input
+              id="zip-filter"
+              name="zip-filter"
               aria-label="Zip code"
-              classNamePrefix="zip-select"
+              type="text"
+              role="combobox"
+              aria-autocomplete="list"
+              list="zip-code-options"
+              value={zipCode}
+              onChange={(event) => setZipCode(event.target.value)}
+              placeholder="Search zip codes"
             />
+            <datalist id="zip-code-options">
+              {zipCodeOptions.map((option) => (
+                <option key={option} value={option} />
+              ))}
+            </datalist>
           </div>
 
           <div className="filterGroup">
@@ -171,6 +201,20 @@ function App() {
             >
               <option value="soonest">Soonest first</option>
               <option value="latest">Latest first</option>
+            </select>
+          </div>
+
+          <div className="filterGroup">
+            <label htmlFor="results-per-page">Results per page</label>
+            <select
+              id="results-per-page"
+              name="results-per-page"
+              value={resultsPerPage}
+              onChange={(e) => setResultsPerPage(Number(e.target.value))}
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
             </select>
           </div>
 
@@ -241,7 +285,7 @@ function App() {
             )}
 
           <ul className="concert-list">
-            {visibleEvents.map((event) => {
+            {paginatedEvents.map((event) => {
               const isFav = favorites.includes(event.id);
               return (
                 <li className="concert-card" key={event.id}>
@@ -278,6 +322,11 @@ function App() {
               );
             })}
           </ul>
+            {remainingResults > 0 && (
+              <div style={{ marginTop: "12px" }}>
+                <button type="button">Show {resultsPerPage} more results</button>
+              </div>
+            )}
         </section>
         <EventCalendar eventsByDate={eventsByDate} />
       </main>

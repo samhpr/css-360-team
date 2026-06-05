@@ -103,6 +103,16 @@ describe("Sprint 1 interface behavior", () => {
     expect(screen.queryAllByText("Jazz by the Lake").length).toBe(0);
   });
 
+  test("search tolerates small typos", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const searchInput = screen.getByLabelText("Search concerts");
+    await user.type(searchInput, "jasz");
+
+    expect(screen.getAllByText("Jazz by the Lake").length).toBeGreaterThan(0);
+  });
+
   test("base accessibility affordances are present", () => {
     render(<App />);
 
@@ -112,57 +122,45 @@ describe("Sprint 1 interface behavior", () => {
     expect(screen.getByRole("region", { name: "Concert calendar section" })).toBeInTheDocument();
   });
 
-  test("zip code dropdown shows placeholder when nothing is selected", () => {
+  test("zip code input starts empty", () => {
     render(<App />);
-    // react-select renders the placeholder as visible text when no value is set
-    expect(screen.getByText("All zip codes")).toBeInTheDocument();
+    const zipInput = screen.getByRole("combobox", { name: "Zip code" });
+    expect(zipInput).toHaveValue("");
   });
 
-  test("selecting a zip code filters the concert list", async () => {
+  test("typing a zip code filters the concert list", async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    // Open the dropdown by clicking the combobox
-    const zipInput = screen.getByLabelText("Zip code");
-    await user.click(zipInput);
-
-    // Click the option (react-select renders options as divs after opening)
-    const option = await screen.findByText("98103");
-    await user.click(option);
+    const zipInput = screen.getByRole("combobox", { name: "Zip code" });
+    await user.type(zipInput, "98103");
 
     expect(screen.getAllByText("Northside Noise Fest").length).toBeGreaterThan(0);
     expect(screen.queryAllByText("Jazz by the Lake").length).toBe(0);
   });
 
-  test("Reset Filters clears the zip code dropdown", async () => {
+  test("typing a near-match zip code still filters the concert list", async () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const zipInput = screen.getByLabelText("Zip code");
-    await user.click(zipInput);
-    const option = await screen.findByText("98103");
-    await user.click(option);
+    const zipInput = screen.getByRole("combobox", { name: "Zip code" });
+    await user.type(zipInput, "98104");
+
+    expect(screen.getAllByText("Northside Noise Fest").length).toBeGreaterThan(0);
+  });
+
+  test("Reset Filters clears the zip code input", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    const zipInput = screen.getByRole("combobox", { name: "Zip code" });
+    await user.type(zipInput, "98103");
+    expect(zipInput).toHaveValue("98103");
 
     const resetButtons = screen.getAllByRole("button", { name: /reset filters/i });
     await user.click(resetButtons[0]);
 
-    // After reset, the placeholder is visible again
-    expect(screen.getByText("All zip codes")).toBeInTheDocument();
-  });
-
-  test("typing in the zip dropdown narrows visible options", async () => {
-    const user = userEvent.setup();
-    render(<App />);
-
-    const zipInput = screen.getByLabelText("Zip code");
-    await user.click(zipInput);
-    await user.type(zipInput, "981");
-
-    // 98103 and 98101 start with 981 — both should be visible
-    expect(await screen.findByText("98103")).toBeInTheDocument();
-    expect(await screen.findByText("98101")).toBeInTheDocument();
-    // 98004 does NOT start with 981, should not appear
-    expect(screen.queryByText("98004")).not.toBeInTheDocument();
+    expect(zipInput).toHaveValue("");
   });
 
   test("favorite button is initially unfilled (☆) for all concerts", () => {
