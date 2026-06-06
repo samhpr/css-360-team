@@ -1,5 +1,6 @@
 fastapi
 httpx
+prometheus-fastapi-instrumentator
 pydantic
 python-dotenv
 supabase

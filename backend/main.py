@@ -5,6 +5,7 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from database import (
     get_distinct_genres,
@@ -66,6 +67,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Observability: expose Prometheus metrics at /metrics (request counts,
+# latency histograms, request/response sizes). Scraped by the local
+# observability lab — see the "Observability lab" section in README.md.
+Instrumentator().instrument(app).expose(app)
 
 
 def _parse_tm_events(raw: list[dict]) -> list[dict]:

@@ -1,0 +1,89 @@
+# Local observability lab for the Local Live API (FastAPI backend).
+#
+# Brings up Prometheus, Grafana, node-exporter, and the app itself, all on a
+# shared bridge network so they resolve each other by service name. Metric and
+# dashboard data survive `docker compose down` thanks to named volumes.
+#
+#   docker compose up -d --build
+#
+# Then:
+#   Prometheus  -> http://localhost:9090   (Status -> Targets should be UP)
+#   Grafana     -> http://localhost:3000   (login admin / admin)
+#   App         -> http://localhost:8000   (/metrics is the scrape endpoint)
+
+services:
+  app:
+    # Reuses the repo's existing multi-stage Dockerfile (frontend build + uvicorn).
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: local-live-api
+    # Supabase credentials live in backend/.env (same file the app already uses).
+    # Marked optional so the rest of the lab still starts if you haven't filled
+    # it in yet -- but the app container will exit on boot until it has valid
+    # SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY, because its startup hook pings
+    # Supabase. node-exporter, Prometheus and Grafana do not depend on this.
+    env_file:
+      - path: backend/.env
+        required: false
+    ports:
+      - "8000:8000"
+    networks:
+      - obs-net
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - obs-net
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - obs-net
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.1
+    container_name: node-exporter
+    command:
+      - "--path.rootfs=/host"
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    ports:
+      - "9100:9100"
+    networks:
+      - obs-net
+    restart: unless-stopped
+
+networks:
+  obs-net:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data:

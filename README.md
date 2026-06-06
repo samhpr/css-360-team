@@ -177,6 +177,98 @@ The backend should be configured via environment variables passed to `docker run
 docker run -e SUPABASE_URL=... -e SUPABASE_SERVICE_ROLE_KEY=... -p 8000:8000 local-live:latest
 ```
 
+## Observability lab (Prometheus + Grafana)
+
+A self-contained local monitoring stack for the backend, modeled on the
+structure of Grafana's *Grafana Fundamentals* tutorial: stand up a sample app,
+scrape it with Prometheus, then visualize the metrics in a pre-provisioned
+Grafana dashboard.
+
+### The stack
+
+Four containers on a shared Docker network (`obs-net`), defined in
+[docker-compose.yml](docker-compose.yml):
+
+| Service | Image | Port | Role |
+| --- | --- | --- | --- |
+| `app` | built from this repo's [Dockerfile](Dockerfile) | 8000 | The FastAPI backend. `prometheus-fastapi-instrumentator` exposes metrics at `/metrics`. |
+| `prometheus` | `prom/prometheus` | 9090 | Scrapes the targets every 15s and stores the time series. |
+| `grafana` | `grafana/grafana` | 3000 | Queries Prometheus and renders the dashboard. |
+| `node-exporter` | `prom/node-exporter` | 9100 | Exposes host CPU / memory / disk / network metrics. |
+
+```
+node-exporter ─┐
+               ├─ scraped by ─▶  Prometheus  ──queried by──▶  Grafana
+app /metrics ──┘                 (:9090)                       (:3000)
+```
+
+Metric and dashboard state persist across restarts via the named volumes
+`prometheus_data` and `grafana_data`.
+
+### What's instrumented
+
+The only application change is two lines in [backend/main.py](backend/main.py)
+(plus `prometheus-fastapi-instrumentator` in `requirements.txt`):
+
+```python
+from prometheus_fastapi_instrumentator import Instrumentator
+Instrumentator().instrument(app).expose(app)
+```
+
+This adds a `/metrics` endpoint with, among others:
+
+- `http_requests_total{handler,status,method}` — request counter → **request rate**
+- `http_request_duration_seconds_bucket{handler,method}` — latency histogram → **p95 latency**
+
+No routes, handlers, or data logic were modified.
+
+### Bring it up
+
+From this directory (`css-360-team/`, the repo root):
+
+```bash
+docker compose up -d --build
+```
+
+That one command builds the app image and starts all four services.
+
+> **Note:** the `app` container needs valid `SUPABASE_URL` and
+> `SUPABASE_SERVICE_ROLE_KEY` in `backend/.env` to boot — its startup hook pings
+> Supabase (see [Setup → Backend](#2-backend)). Without them the app target
+> shows **DOWN**, but Prometheus, Grafana, and node-exporter still come up fine.
+
+### Verify
+
+1. **Prometheus targets** — open <http://localhost:9090/targets>. The
+   `node-exporter`, `prometheus`, and `local-live-api` jobs should all read
+   **UP**.
+2. **Grafana dashboard** — open <http://localhost:3000> (login `admin` /
+   `admin`). The data source and the **Local Live API — Overview** dashboard are
+   provisioned automatically — no manual setup. The dashboard shows request
+   rate, p95 latency, CPU %, and memory %.
+3. **Generate some traffic** so the request-rate and latency panels have data:
+
+   ```bash
+   for i in $(seq 1 200); do curl -s localhost:8000/api/genres > /dev/null; done
+   ```
+
+### How provisioning works
+
+Grafana is configured entirely from files (no clicking), mounted read-only:
+
+- [observability/grafana/provisioning/datasources/datasource.yml](observability/grafana/provisioning/datasources/datasource.yml) — registers Prometheus as the default data source.
+- [observability/grafana/provisioning/dashboards/dashboards.yml](observability/grafana/provisioning/dashboards/dashboards.yml) — tells Grafana to load every dashboard JSON in the mounted folder.
+- [observability/grafana/dashboards/local-live-overview.json](observability/grafana/dashboards/local-live-overview.json) — the starter dashboard.
+
+Prometheus scrape jobs live in [observability/prometheus/prometheus.yml](observability/prometheus/prometheus.yml).
+
+### Tear down
+
+```bash
+docker compose down            # stop containers, keep metric history
+docker compose down -v         # also delete the prometheus_data / grafana_data volumes
+```
+
 ## Suggested branching
 
 1. Create feature branches from `main` (example: `feature/story-sort-by-date`).
