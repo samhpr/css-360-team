@@ -13,6 +13,31 @@ import { getFavorites, toggleFavorite } from "./lib/favorites";
 function App() {
   const { events, loading, error } = useEvents({});
 
+  useEffect(() => {
+    console.log("Fetching ADA stats..."); // comfirming that frontend started the ADA request to backend
+
+    fetch("http://localhost:8000/api/events/ada-stats")
+      .then(async (res) => {
+        console.log("HTTP status:", res.status); // sends either 200 for success or non-200 for faliures
+
+        const data = await res.json();
+        console.log("ADA STATS (backend):", data); // RAW backend response; verifies API returing correct ADA counts (true/false/total)
+
+        return data;
+      })
+      .then((data) => {
+        // validates response structure
+        console.log("Parsed ADA stats:", {
+          raw: data,
+          type: typeof data,
+          keys: data ? Object.keys(data) : null,
+        });
+      })
+      .catch((err) => {
+        console.error("ADA STATS FETCH ERROR:", err); // logs any network or parsing errors encountered during the fetch
+      });
+  }, []);
+
   const [searchValue, setSearchValue] = useState("");
   const [genre, setGenre] = useState([]);
   const [zipCode, setZipCode] = useState([]);
@@ -61,8 +86,14 @@ function App() {
     setMult(1);
   }, [searchValue]);
 
-  const genreOptions = useMemo(() => getGenreOptions(events), [events]);
-  const zipCodeOptions = useMemo(() => getZipCodeOptions(events), [events]);
+  const currentEventsBase = useMemo(() => {
+    const tempEvents = Array.isArray(events) ? events : [];
+    const today = new Date().toISOString().split("T")[0];
+    return tempEvents.filter((event) => event && event.date && event.date >= today);
+  }, [events]);
+
+  const genreOptions = useMemo(() => getGenreOptions(currentEventsBase), [currentEventsBase]);
+  const zipCodeOptions = useMemo(() => getZipCodeOptions(currentEventsBase), [currentEventsBase]);
 
   const filteredZipOptions = useMemo(() => {
     return zipCodeOptions
@@ -71,6 +102,13 @@ function App() {
         String(zOption).toLowerCase().includes(zipSearchText.toLowerCase().trim()),
       );
   }, [zipCodeOptions, zipSearchText]);
+
+  const formatPrice = (price, link) => {
+    if (price === null || price === undefined || price === 0) {
+      return link ? "Check link for price" : "Price unavailable";
+    }
+    return `$${price}`;
+  };
 
   const resetFilters = () => {
     setSearchValue("");
@@ -100,19 +138,25 @@ function App() {
   };
 
   const availableEvents = useMemo(() => {
-    // ADD LATER: will only show upcoming events and hide events that have passed) //
+    // Sanity check to verify ADA fields exists on the frontend objects
+    console.log(
+      "ADA CHECK SAMPLE:",
+      events.slice(0, 10).map((e) => ({
+        name: e.name,
+        isADAComp: e.isADAComp,
+        raw_keys: Object.keys(e),
+      })),
+    );
 
-    // const tempEvents = Array.isArray(events) ? events : [];
-    // const today = new Date().toISOString().split('T')[0];
-    // const currentEvents = tempEvents.filter(event => event && event.date && event.date >= today);
+    const tempEvents = Array.isArray(events) ? events : [];
+    const today = new Date().toISOString().split("T")[0];
+    const currentEvents = tempEvents.filter((event) => event && event.date && event.date >= today);
 
-    // let filtered = searchEvents(currentEvents, searchValue);
-
-    let filtered = searchEvents(events, searchValue);
+    let filtered = searchEvents(currentEvents, searchValue);
 
     if (searchValue.trim() !== "") {
       const searchText = searchValue.toLowerCase().trim();
-      const matchingZips = events.filter((event) => {
+      const matchingZips = currentEvents.filter((event) => {
         return event.zipCode && String(event.zipCode).toLowerCase().includes(searchText);
       });
       if (matchingZips.length > 0) {
@@ -175,13 +219,14 @@ function App() {
       });
     }
 
+    // shows how many events exist right beofre ADA filter is applied
+    console.log("BEFORE ADA FILTER COUNT:", filtered.length);
+    // Counts how many events are actually marked ADA-compliant in the current filtered set
+    // if it is 0 but the backend says adaTrue > 0, then the mapping/field is not correct or data loss in frontend
+    console.log("ADA candidates:", filtered.filter((e) => e.isADAComp).length);
+
     if (adaOnly === "true") {
-      filtered = filtered.filter((event) => {
-        return (
-          String(event.isADAComp).toLowerCase() === "true" ||
-          String(event.is_ada_compliant).toLowerCase() === "true"
-        );
-      });
+      filtered = filtered.filter((event) => event.isADAComp === true);
     }
 
     if (viewMode === "favorites") {
@@ -552,7 +597,7 @@ function App() {
                 }}
               >
                 <span>
-                  Sort:{" "}
+                  {" "}
                   {sortOrder === "soonest"
                     ? "Soonest first"
                     : sortOrder === "latest"
@@ -585,8 +630,8 @@ function App() {
                 {[
                   { value: "soonest", label: "Soonest first" },
                   { value: "latest", label: "Latest first" },
-                  { value: "priceAscending", label: "Price - Low to High" },
-                  { value: "priceDescending", label: "Price - High to Low" },
+                  { value: "priceAscending", label: "Price: Low to High" },
+                  { value: "priceDescending", label: "Price: High to Low" },
                 ].map((sOption) => {
                   const isActive = sortOrder === sOption.value;
                   return (
@@ -611,7 +656,7 @@ function App() {
                         width: "100%",
                       }}
                     >
-                      {sOption.label} {isActive && "✓"}
+                      {sOption.label} {isActive}
                     </button>
                   );
                 })}
@@ -656,7 +701,7 @@ function App() {
               }}
             >
               <span style={{ color: "#005eb8" }}>Show groups of:</span>
-              {[10, 25, 50].map((num, idx) => {
+              {[10, 25, 50, 9999].map((num, idx) => {
                 const isActive = displayCount === num;
                 return (
                   <React.Fragment key={num}>
@@ -678,9 +723,9 @@ function App() {
                         textDecoration: "none",
                       }}
                     >
-                      {num}
+                      {num === 9999 ? "All" : num}
                     </button>
-                    {idx < 2 && <span style={{ color: "#9db5ce", margin: "0 0.1rem" }}>|</span>}
+                    {idx < 3 && <span style={{ color: "#9db5ce", margin: "0 0.1rem" }}>|</span>}
                   </React.Fragment>
                 );
               })}
@@ -737,18 +782,26 @@ function App() {
                   </p>
                   <p>
                     {event.location} | {event.venue}
-                    {(String(event.isADAComp).toLowerCase() === "true" ||
-                      String(event.is_ada_compliant).toLowerCase() === "true") && (
+                    {event.isADAComp === true && (
                       <span
                         title="ADA Compliant"
                         aria-label="ADA Compliant Venue"
                         style={{ color: "#005eb8", marginLeft: "6px" }}
                       >
-                        {"♿︎"}
+                        ♿︎
                       </span>
                     )}
                   </p>
-                  <a href={event.ticketLink}>Ticket Link</a> | ${event.ticketPrice}
+                  {event.ticketPrice === null ||
+                  event.ticketPrice === undefined ||
+                  event.ticketPrice === 0 ? (
+                    <a href={event.ticketLink}>Check link for price</a>
+                  ) : (
+                    <>
+                      <a href={event.ticketLink}>Ticket Link</a> |{" "}
+                      {formatPrice(event.ticketPrice, event.ticketLink)}
+                    </>
+                  )}
                 </li>
               );
             })}
