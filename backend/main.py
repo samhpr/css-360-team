@@ -8,10 +8,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database import (
     get_distinct_genres,
+    get_distinct_zipcodes,
     get_event_by_id,
     init_db,
     query_events,
     upsert_events,
+    get_ada_stats,
 )
 from models import EventResponse
 
@@ -40,12 +42,16 @@ async def lifespan(app: FastAPI):
                         "countryCode": "US",
                     },
                 )
+
             raw = resp.json().get("_embedded", {}).get("events", [])
+
             if raw:
                 upsert_events(_parse_tm_events(raw))
                 print(f"Synced {len(raw)} events from Ticketmaster")
+
         except Exception as e:
             print(f"Ticketmaster sync failed: {e}")
+
     yield
 
 
@@ -69,18 +75,31 @@ app.add_middleware(
 
 
 def _parse_tm_events(raw: list[dict]) -> list[dict]:
-    """Normalise Ticketmaster payload into our DB schema."""
     parsed = []
+
     for e in raw:
         try:
             venue_info = e.get("_embedded", {}).get("venues", [{}])[0]
+
             classif = e.get("classifications", [{}])[0]
             genre = classif.get("genre", {}).get("name", "Other")
             if genre in ("Undefined", "Other", ""):
                 genre = classif.get("segment", {}).get("name", "Other")
 
-            price_ranges = e.get("priceRanges", [])
-            ticket_price = int(price_ranges[0].get("min", 0)) if price_ranges else 0
+            price_ranges = e.get("priceRanges")
+
+            ticket_price = None
+
+            if isinstance(price_ranges, list):
+                for pr in price_ranges:
+                    if not isinstance(pr, dict):
+                        continue
+
+                    min_price = pr.get("min")
+
+                    if isinstance(min_price, (int, float)) and min_price > 0:
+                        ticket_price = int(min_price)
+                        break
 
             city = venue_info.get("city", {}).get("name", "Unknown City")
             state = venue_info.get("state", {}).get("stateCode", "")
@@ -88,8 +107,31 @@ def _parse_tm_events(raw: list[dict]) -> list[dict]:
 
             date_str = e.get("dates", {}).get("start", {}).get("localDate", "")
 
-            ada_detail = venue_info.get("accessibleSeatingDetail", "")
-            is_ada = bool(ada_detail)
+            is_ada = False
+
+            is_ada = False
+
+            venue = venue_info or {}
+
+            # 1. venue accessibility field (best available signal)
+            if venue.get("accessibleSeatingDetail"):
+                is_ada = True
+
+            # 2. venue name heuristic (surprisingly useful in TM data)
+            venue_name = (venue.get("name") or "").lower()
+            if any(x in venue_name for x in ["center", "arena", "stadium", "theater"]):
+                # not ADA by itself, but we use it to avoid false negatives
+                is_ada = is_ada or False
+
+            # 3. wheelchair/access flags sometimes appear here
+            access = venue.get("accessibility") or {}
+            if isinstance(access, dict):
+                if any(access.values()):
+                    is_ada = True
+
+            # 4. last resort: event-level metadata
+            if "wheelchair" in str(e).lower():
+                is_ada = True
 
             parsed.append(
                 {
@@ -99,35 +141,40 @@ def _parse_tm_events(raw: list[dict]) -> list[dict]:
                     "date": date_str,
                     "location": location,
                     "venue": venue_info.get("name", "Unknown Venue"),
+                    "zip_code": venue_info.get("postalCode", ""),
                     "ticket_link": e.get("url", "#"),
                     "ticket_price": ticket_price,
                     "is_ada_compliant": is_ada,
                 }
             )
+
         except (KeyError, IndexError, TypeError):
             continue
+
     return parsed
 
 
 @app.get("/api/events", response_model=list[EventResponse])
 async def get_events(
-    city: str = Query(default=None, description="Filter by city (partial match)"),
-    genre: str = Query(default=None, description="Filter by genre"),
-    keyword: str = Query(default=None, description="Search name / venue / location / genre"),
-    price_min: float = Query(default=None, description="Minimum ticket price"),
-    price_max: float = Query(default=None, description="Maximum ticket price"),
-    ada_only: bool = Query(default=False, description="ADA compliant venues only"),
-    sort: str = Query(default="soonest", description="soonest | latest"),
-    refresh: bool = Query(default=False, description="Pull fresh data from Ticketmaster"),
-    tm_city: str = Query(default="Seattle", description="City to query when refreshing"),
+    city: str = Query(default=None),
+    genre: str = Query(default=None),
+    keyword: str = Query(default=None),
+    zip_code: str = Query(default=None),
+    price_min: float = Query(default=None),
+    price_max: float = Query(default=None),
+    ada_only: bool = Query(default=False),
+    sort: str = Query(default="soonest"),
+    refresh: bool = Query(default=False),
+    tm_city: str = Query(default="Seattle"),
     size: int = Query(default=50, ge=1, le=200),
 ):
     if refresh:
         if not TICKETMASTER_API_KEY:
             raise HTTPException(
                 status_code=500,
-                detail="TICKETMASTER_API_KEY not configured. Add it to your .env file.",
+                detail="TICKETMASTER_API_KEY not configured.",
             )
+
         params = {
             "apikey": TICKETMASTER_API_KEY,
             "city": tm_city,
@@ -138,14 +185,18 @@ async def get_events(
             "sort": "date,asc",
             "countryCode": "US",
         }
+
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.get(TICKETMASTER_BASE_URL, params=params)
+
         if resp.status_code != 200:
             raise HTTPException(
                 status_code=502,
                 detail=f"Ticketmaster returned HTTP {resp.status_code}",
             )
+
         raw = resp.json().get("_embedded", {}).get("events", [])
+
         if raw:
             upsert_events(_parse_tm_events(raw))
 
@@ -153,12 +204,16 @@ async def get_events(
         city=city,
         genre=genre,
         keyword=keyword,
+        zip_code=zip_code,
         price_min=price_min,
         price_max=price_max,
         ada_only=ada_only,
         sort=sort,
     )
 
+@app.get("/api/events/ada-stats")
+async def ada_stats():
+    return get_ada_stats()
 
 @app.get("/api/events/{event_id}", response_model=EventResponse)
 async def get_event(event_id: str):
@@ -170,10 +225,15 @@ async def get_event(event_id: str):
 
 @app.get("/api/genres")
 async def get_genres():
-    """Distinct genres in the DB — used to populate the frontend genre filter."""
     return {"genres": ["All"] + get_distinct_genres()}
+
+
+@app.get("/api/zipcodes")
+async def get_zipcodes():
+    return {"zipcodes": get_distinct_zipcodes()}
 
 
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
