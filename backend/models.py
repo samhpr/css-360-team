@@ -13,7 +13,7 @@ class EventResponse(BaseModel):
     date:        str
     location:    str
     venue:       str
-    ticketPrice: float
+    ticketPrice: Optional[float] = None
     ticketLink:  str
     isADAComp:   bool
  
