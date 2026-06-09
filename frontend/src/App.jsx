@@ -13,6 +13,31 @@ import { getFavorites, toggleFavorite } from "./lib/favorites";
 function App() {
   const { events, loading, error } = useEvents({});
 
+  useEffect(() => {
+  console.log("Fetching ADA stats..."); // comfirming that frontend started the ADA request to backend
+
+  fetch("http://localhost:8000/api/events/ada-stats")
+    .then(async (res) => {
+      console.log("HTTP status:", res.status); // sends either 200 for success or non-200 for faliures
+
+      const data = await res.json();
+      console.log("ADA STATS (backend):", data); // RAW backend response; verifies API returing correct ADA counts (true/false/total)
+
+      return data;
+    })
+    .then((data) => {
+      // validates response structure
+      console.log("Parsed ADA stats:", { 
+        raw: data,
+        type: typeof data,
+        keys: data ? Object.keys(data) : null,
+      });
+    })
+    .catch((err) => {
+      console.error("ADA STATS FETCH ERROR:", err); // logs any network or parsing errors encountered during the fetch
+    });
+}, []);
+
   const [searchValue, setSearchValue] = useState("");
   const [genre, setGenre] = useState([]);
   const [zipCode, setZipCode] = useState([]);
@@ -72,6 +97,13 @@ function App() {
       );
   }, [zipCodeOptions, zipSearchText]);
 
+  const formatPrice = (price, link) => {
+  if (price === null || price === undefined || price === 0) {
+    return link ? "Check link for price" : "Price unavailable";
+  }
+  return `$${price}`;
+  };
+
   const resetFilters = () => {
     setSearchValue("");
     setGenre([]);
@@ -100,15 +132,23 @@ function App() {
   };
 
   const availableEvents = useMemo(() => {
+
+    // Sanity check to verify ADA fields exists on the frontend objects
+    console.log("ADA CHECK SAMPLE:", events.slice(0, 10).map(e => ({
+      name: e.name,
+      is_ada_compliant: e.is_ada_compliant,
+      raw_keys: Object.keys(e)
+    })));
+
     // ADD LATER: will only show upcoming events and hide events that have passed) //
 
-    // const tempEvents = Array.isArray(events) ? events : [];
-    // const today = new Date().toISOString().split('T')[0];
-    // const currentEvents = tempEvents.filter(event => event && event.date && event.date >= today);
+     const tempEvents = Array.isArray(events) ? events : [];
+     const today = new Date().toISOString().split('T')[0];
+     const currentEvents = tempEvents.filter(event => event && event.date && event.date >= today);
 
-    // let filtered = searchEvents(currentEvents, searchValue);
+     let filtered = searchEvents(currentEvents, searchValue);
 
-    let filtered = searchEvents(events, searchValue);
+    //let filtered = searchEvents(events, searchValue);
 
     if (searchValue.trim() !== "") {
       const searchText = searchValue.toLowerCase().trim();
@@ -175,13 +215,16 @@ function App() {
       });
     }
 
+    // shows how many events exist right beofre ADA filter is applied
+    console.log("BEFORE ADA FILTER COUNT:", filtered.length);
+    // Counts how many events are actually marked ADA-compliant in the current filtered set
+    // if it is 0 but the backend says adaTrue > 0, then the mapping/field is not correct or data loss in frontend
+    console.log("ADA candidates:", filtered.filter(e => e.is_ada_compliant).length);
+
     if (adaOnly === "true") {
-      filtered = filtered.filter((event) => {
-        return (
-          String(event.isADAComp).toLowerCase() === "true" ||
-          String(event.is_ada_compliant).toLowerCase() === "true"
-        );
-      });
+      filtered = filtered.filter((event) =>
+        event.is_ada_compliant === true || event.isADAComp === true
+      );
     }
 
     if (viewMode === "favorites") {
@@ -737,18 +780,17 @@ function App() {
                   </p>
                   <p>
                     {event.location} | {event.venue}
-                    {(String(event.isADAComp).toLowerCase() === "true" ||
-                      String(event.is_ada_compliant).toLowerCase() === "true") && (
+                    {event.is_ada_compliant === true && (
                       <span
                         title="ADA Compliant"
                         aria-label="ADA Compliant Venue"
                         style={{ color: "#005eb8", marginLeft: "6px" }}
                       >
-                        {"♿︎"}
+                        ♿︎
                       </span>
                     )}
                   </p>
-                  <a href={event.ticketLink}>Ticket Link</a> | ${event.ticketPrice}
+                  <a href={event.ticketLink}>Ticket Link</a> | {formatPrice(event.ticketPrice, event.ticketLink)}
                 </li>
               );
             })}
