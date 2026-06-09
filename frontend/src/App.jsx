@@ -10,20 +10,6 @@ import {
 } from "./lib/events";
 import { getFavorites, toggleFavorite } from "./lib/favorites";
 
-const ACCESSIBLE_WHITELIST = new Set([
-  "the showbox",
-  "tractor",
-  "the crocodile",
-  "chop suey",
-  "clockout lounge",
-  "neptune theatre",
-  "nectar lounge",
-  "paramount theatre",
-  "climate pledge arena",
-  "madame lous",
-  "vera project",
-]);
-
 function App() {
   const { events, loading, error } = useEvents({});
 
@@ -240,17 +226,7 @@ function App() {
     console.log("ADA candidates:", filtered.filter((e) => e.isADAComp).length);
 
     if (adaOnly === "true") {
-      filtered = filtered.filter((event) => {
-        if (event.isADAComp === true) return true;
-        const venueName = event.venue
-          ? event.venue
-              .toLowerCase()
-              .replace(/[^a-z0-9\s]/g, "")
-              .trim()
-          : "";
-        const isAccessibleVenue = ACCESSIBLE_WHITELIST.has(venueName);
-        return isAccessibleVenue;
-      });
+      filtered = filtered.filter((event) => event.isADAComp === true);
     }
 
     if (viewMode === "favorites") {
@@ -806,14 +782,7 @@ function App() {
                   </p>
                   <p>
                     {event.location} | {event.venue}
-                    {(event.isADAComp === true ||
-                      (event.venue &&
-                        ACCESSIBLE_WHITELIST.has(
-                          event.venue
-                            .toLowerCase()
-                            .replace(/[^a-z0-9\s]/g, "")
-                            .trim(),
-                        ))) && (
+                    {event.isADAComp === true && (
                       <span
                         title="ADA Compliant"
                         aria-label="ADA Compliant Venue"
